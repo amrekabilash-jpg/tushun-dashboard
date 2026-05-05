@@ -30,7 +30,7 @@ export default function LoginPage() {
         {/* LOGO */}
         <div className="login-logo">
           <div className="login-logo-mark">TUSHUN</div>
-          <div className="login-logo-sub">{t('subtitle')}</div>
+          <div className="login-logo-sub">{t('sidebar.subtitle')}</div>
         </div>
 
         {/* TITLE */}
