@@ -1,4 +1,14 @@
 {
+  "login": {
+    "title": "欢迎回来",
+    "subtitle": "登录财务管理系统",
+    "email": "邮箱",
+    "email_placeholder": "admin@tushun.kz",
+    "password": "密码",
+    "btn": "登录",
+    "error": "邮箱或密码错误",
+    "hint_admin": "演示账号："
+  },
   "sidebar": {
     "subtitle": "分销 · 哈萨克斯坦",
     "modules_label": "模块",

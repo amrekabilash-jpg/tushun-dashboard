@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../../store';
+import { useAuthStore } from '../../store/auth';
 import { ModuleId } from '../../types';
 import LanguageSwitcher from '../LanguageSwitcher';
 
@@ -48,6 +49,7 @@ const NAV_ITEMS: { id: ModuleId; key: string; icon: React.ReactNode }[] = [
 
 export default function Sidebar() {
   const { activeModule, setModule } = useAppStore();
+  const { user, logout } = useAuthStore();
   const { t } = useTranslation();
 
   return (
@@ -73,11 +75,16 @@ export default function Sidebar() {
       <div className="sidebar-footer">
         <LanguageSwitcher />
         <div className="user-row">
-          <div className="avatar">АД</div>
-          <div>
-            <div className="user-name">{t('sidebar.user_name')}</div>
-            <div className="user-role">{t('sidebar.user_role')}</div>
+          <div className="avatar">{user?.name.slice(0, 2).toUpperCase() ?? 'АД'}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="user-name">{user?.name ?? t('sidebar.user_name')}</div>
+            <div className="user-role">{user?.role ?? t('sidebar.user_role')}</div>
           </div>
+          <button className="logout-btn" onClick={logout} title="Выйти">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M5 2H3a1 1 0 00-1 1v8a1 1 0 001 1h2M9 10l3-3-3-3M12 7H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
         </div>
       </div>
     </aside>

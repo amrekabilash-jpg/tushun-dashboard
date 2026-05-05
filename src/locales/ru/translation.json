@@ -1,4 +1,14 @@
 {
+  "login": {
+    "title": "Добро пожаловать",
+    "subtitle": "Войдите в систему учёта",
+    "email": "Email",
+    "email_placeholder": "admin@tushun.kz",
+    "password": "Пароль",
+    "btn": "Войти",
+    "error": "Неверный email или пароль",
+    "hint_admin": "Для демонстрации:"
+  },
   "sidebar": {
     "subtitle": "Дистрибьюция · Казахстан",
     "modules_label": "Модули",

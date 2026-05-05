@@ -1,4 +1,6 @@
 import "./App.css";
+import { useAuthStore } from "./store/auth";
+import LoginPage from "./pages/LoginPage";
 import Sidebar from "./components/layout/Sidebar";
 import Module1 from "./modules/module1/Module1";
 import { useAppStore } from "./store";
@@ -14,9 +16,8 @@ function renderModule(id: number) {
   }
 }
 
-function App() {
+function Dashboard() {
   const { activeModule } = useAppStore();
-
   return (
     <div className="app">
       <Sidebar />
@@ -25,6 +26,11 @@ function App() {
       </main>
     </div>
   );
+}
+
+function App() {
+  const user = useAuthStore(s => s.user);
+  return user ? <Dashboard /> : <LoginPage />;
 }
 
 export default App;

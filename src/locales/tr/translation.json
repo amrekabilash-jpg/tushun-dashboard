@@ -1,4 +1,14 @@
 {
+  "login": {
+    "title": "Hoş Geldiniz",
+    "subtitle": "Muhasebe sistemine giriş yapın",
+    "email": "E-posta",
+    "email_placeholder": "admin@tushun.kz",
+    "password": "Şifre",
+    "btn": "Giriş Yap",
+    "error": "Geçersiz e-posta veya şifre",
+    "hint_admin": "Demo için:"
+  },
   "sidebar": {
     "subtitle": "Dağıtım · Kazakistan",
     "modules_label": "Modüller",
