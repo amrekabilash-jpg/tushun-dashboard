@@ -22,3 +22,23 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python (backend)
+__pycache__/
+*.py[cod]
+*$py.class
+backend/venv/
+backend/.pytest_cache/
+backend/instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Rust (Tauri)
+src-tauri/target/
+
+# Local secrets / scratch
+secrets*.md
+*.secret.*
+.env
+.env.*

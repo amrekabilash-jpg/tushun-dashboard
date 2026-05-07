@@ -1,0 +1,160 @@
+/* ImportBatch использует базовые токены TaxSettings.css */
+
+.ib-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 16px;
+}
+@media (max-width: 1100px) {
+  .ib-grid { grid-template-columns: 1fr; }
+}
+
+.ib-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+@media (max-width: 720px) { .ib-row { grid-template-columns: 1fr; } }
+
+.ib-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.ib-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #4A5568;
+}
+
+.ib-input {
+  width: 100%;
+  background: #161B24;
+  border: 1px solid #252E42;
+  border-radius: 7px;
+  padding: 9px 11px;
+  color: #E2E8F4;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition: border-color .14s, box-shadow .14s;
+}
+.ib-input:focus { border-color: #C9A227; box-shadow: 0 0 0 1px rgba(201,162,39,.32); }
+.ib-input--num { font-family: 'JetBrains Mono', monospace; text-align: right; }
+.ib-input--select { font-family: 'Manrope', sans-serif; cursor: pointer; }
+
+.ib-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+.ib-item {
+  border: 1px solid #1E2535;
+  border-radius: 9px;
+  padding: 12px;
+  background: rgba(22,27,36,.4);
+}
+.ib-item-row {
+  display: grid;
+  grid-template-columns: 1fr 110px 110px 36px;
+  gap: 10px;
+  align-items: center;
+}
+@media (max-width: 720px) {
+  .ib-item-row { grid-template-columns: 1fr 1fr; }
+  .ib-item-row .ib-input--select { grid-column: 1 / -1; }
+}
+.ib-remove {
+  height: 36px; width: 36px; padding: 0; font-size: 18px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.ib-item-meta {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #1E2535;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #8892A4;
+}
+.ib-item-meta strong { color: #E2E8F4; font-weight: 600; }
+.ib-item-cost { margin-left: auto; }
+.ib-item-cost strong { color: #C9A227; }
+
+.ib-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* SUMMARY (правая колонка) */
+.ib-summary { position: sticky; top: 24px; align-self: start; }
+.ib-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.ib-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #8892A4;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(30,37,53,.7);
+}
+.ib-total-row strong { color: #E2E8F4; font-weight: 600; }
+.ib-total-row--alt { color: #C9A227; padding-top: 10px; }
+.ib-total-row--alt strong { color: #C9A227; }
+.ib-total-row--big {
+  margin-top: 8px;
+  border-bottom: none;
+  padding: 14px 14px;
+  background: rgba(201,162,39,.08);
+  border: 1px solid rgba(201,162,39,.22);
+  border-radius: 9px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ib-total-row--big strong {
+  font-size: 18px;
+  color: #fff;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ib-total-hint {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #4A5568;
+  text-align: right;
+}
+
+/* STATUS BADGES */
+.ib-status {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.ib-status--draft     { background: rgba(96,165,250,.10); color: #60A5FA; border: 1px solid rgba(96,165,250,.22); }
+.ib-status--confirmed { background: rgba(251,191,36,.10); color: #FBBF24; border: 1px solid rgba(251,191,36,.22); }
+.ib-status--received  { background: rgba(52,211,153,.10); color: #34D399; border: 1px solid rgba(52,211,153,.22); }
+
+.tax-banner--ok {
+  background: rgba(52,211,153,.08);
+  border: 1px solid rgba(52,211,153,.28);
+  color: #6EE7B7;
+}
