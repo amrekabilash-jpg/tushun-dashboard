@@ -18,10 +18,11 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY backend/ /app/backend/
 
-WORKDIR /app/backend
-
 EXPOSE 5000
 
-# gunicorn — production WSGI.
-# run.py объявляет глобальный `app = create_app(env)`, его и поднимаем.
-CMD gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --timeout 90 run:app
+# gunicorn — production WSGI запускается из /app
+# PYTHONPATH=/app/backend позволяет импортировать как "from config import ..."
+# Но для gunicorn правильно вызывать как backend.run:app из /app
+ENV PYTHONPATH=/app:$PYTHONPATH
+
+CMD gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --timeout 90 backend.run:app
