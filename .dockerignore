@@ -1,0 +1,15 @@
+node_modules
+dist
+src-tauri/target
+**/__pycache__
+**/.pytest_cache
+backend/venv
+backend/instance
+backend/dashboard.db
+.git
+.vscode
+.idea
+public
+tauri-public
+*.log
+.env

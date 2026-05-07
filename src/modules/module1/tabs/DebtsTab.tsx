@@ -1,65 +1,200 @@
-const debts = [
-  { client: 'ТОО МастерСервис', city: 'Алматы', invoice: 'СФ-2026-029', issued: '02.04.26', due: '02.04.26', days: '+29', amount: '₸2 500 000', statusClass: 's-overdue', status: 'Просрочен' },
-  { client: 'ТОО МастерСервис', city: 'Алматы', invoice: 'СФ-2026-038', issued: '22.04.26', due: '22.04.26', days: '+9', amount: '₸1 520 000', statusClass: 's-overdue', status: 'Просрочен' },
-  { client: 'ТОО АвтоДел Ю.К.', city: 'Алматы', invoice: 'СФ-2026-041', issued: '02.05.26', due: '02.05.26', days: '0', amount: '₸4 670 000', statusClass: 's-pending', status: 'Ожидается' },
-  { client: 'ТОО AutoParts KZ', city: 'Астана', invoice: 'СФ-2026-042', issued: '05.05.26', due: '05.05.26', days: '−3', amount: '₸2 212 000', statusClass: 's-pending', status: 'Ожидается' },
-  { client: 'ТОО АвтоПлюс', city: 'Шымкент', invoice: 'СФ-2026-038', issued: '15.05.26', due: '15.05.26', days: '−10', amount: '₸2 100 000', statusClass: 's-pending', status: 'Ожидается' },
-  { client: 'ТОО МегаДеталь', city: 'Алматы', invoice: 'СФ-2026-039', issued: '20.05.26', due: '20.05.26', days: '−15', amount: '₸2 400 000', statusClass: 's-pending', status: 'Ожидается' },
-];
+import { useCallback, useEffect, useState } from 'react';
+import { api, ApiError } from '../../../utils/api';
+
+type Receivable = Awaited<ReturnType<typeof api.listReceivables>>[number];
+type Summary = Awaited<ReturnType<typeof api.getReceivablesSummary>>;
+
+const fmt = (n: number) => Math.round(n).toLocaleString('ru-RU');
+
+const BUCKET_LABEL: Record<string, string> = {
+  current: 'В сроке',
+  '0-30':  'Просрочка 0–30 дн',
+  '31-60': '31–60 дн',
+  '61-90': '61–90 дн',
+  '90+':   '90+ дн (списание)',
+};
+
+const BUCKET_COLOR: Record<string, string> = {
+  current: '#34D399',
+  '0-30':  '#FBBF24',
+  '31-60': '#F59E0B',
+  '61-90': '#F87171',
+  '90+':   '#DC2626',
+};
+
+const STATUS_CLASS: Record<string, string> = {
+  paid:    's-paid',
+  pending: 's-pending',
+  overdue: 's-overdue',
+  partial: 's-pending',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  paid:    'Оплачен',
+  pending: 'Ожидается',
+  overdue: 'Просрочен',
+  partial: 'Частично',
+};
 
 export default function DebtsTab() {
-  const pending = debts.filter(d => d.statusClass === 's-pending').length;
+  const [rows, setRows] = useState<Receivable[] | null>(null);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      setError(null);
+      const [rs, sm] = await Promise.all([
+        api.listReceivables(),
+        api.getReceivablesSummary(),
+      ]);
+      setRows(rs);
+      setSummary(sm);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Ошибка загрузки');
+    }
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const handlePay = async (saleId: number) => {
+    setBusyId(saleId);
+    try {
+      await api.markPaid(saleId);
+      reload();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Не удалось зарегистрировать оплату');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const overdueCount = summary?.overdue_count ?? 0;
+  const pendingCount = summary?.pending_count ?? 0;
 
   return (
     <>
+      {error && (
+        <div style={{
+          padding: '10px 14px', marginBottom: 12, borderRadius: 8,
+          background: 'rgba(248,113,113,.10)', border: '1px solid rgba(248,113,113,.28)',
+          color: '#FCA5A5', fontSize: 12,
+        }}>⚠ {error}</div>
+      )}
+
       <div className="kpi-row-3">
         <div className="kpi-card" style={{ borderColor: 'rgba(248,113,113,.2)' }}>
           <div className="kpi-label">Просрочено</div>
-          <div className="kpi-value" style={{ color: 'var(--red)' }}><span className="cur" style={{ color: 'var(--red)' }}>₸</span>4 020 000</div>
-          <div className="kpi-delta dn">2 клиента</div>
+          <div className="kpi-value" style={{ color: 'var(--red)' }}>
+            <span className="cur" style={{ color: 'var(--red)' }}>₸</span>
+            {summary ? fmt(summary.total_overdue_kzt) : '…'}
+          </div>
+          <div className="kpi-delta dn">{overdueCount} {overdueCount === 1 ? 'счёт' : 'счёта'} · live</div>
         </div>
         <div className="kpi-card" style={{ borderColor: 'rgba(251,191,36,.2)' }}>
-          <div className="kpi-label">Ожидается (в срок)</div>
-          <div className="kpi-value" style={{ color: 'var(--yellow)' }}><span className="cur" style={{ color: 'var(--yellow)' }}>₸</span>11 382 000</div>
-          <div className="kpi-delta" style={{ color: 'var(--yellow)', background: 'rgba(251,191,36,.10)' }}>{pending} платежей</div>
+          <div className="kpi-label">В сроке</div>
+          <div className="kpi-value" style={{ color: 'var(--yellow)' }}>
+            <span className="cur" style={{ color: 'var(--yellow)' }}>₸</span>
+            {summary ? fmt((summary.aging.find(a => a.bucket === 'current')?.amount_kzt) ?? 0) : '…'}
+          </div>
+          <div className="kpi-delta" style={{ color: 'var(--yellow)', background: 'rgba(251,191,36,.10)' }}>
+            {pendingCount} {pendingCount === 1 ? 'счёт' : 'счёта'}
+          </div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Всего дебиторка</div>
-          <div className="kpi-value"><span className="cur">₸</span>15 402 000</div>
-          <div className="kpi-delta dn">27.7% от выручки</div>
+          <div className="kpi-value"><span className="cur">₸</span>{summary ? fmt(summary.total_outstanding_kzt) : '…'}</div>
+          <div className="kpi-delta">{rows?.length ?? 0} непогашено</div>
         </div>
       </div>
 
-      <div className="cashgap-card">
-        <div className="card-header" style={{ marginBottom: 14 }}>
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">AGING (СТАРЕНИЕ ЗАДОЛЖЕННОСТИ)</div>
+          <span className="card-badge badge-gold">live · 30+ дней опасно</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 1, background: 'var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+          {summary?.aging.map(a => (
+            <div key={a.bucket} style={{ background: 'var(--bg-card)', padding: '14px 16px' }}>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', textTransform: 'uppercase',
+                color: BUCKET_COLOR[a.bucket], marginBottom: 8,
+              }}>{BUCKET_LABEL[a.bucket]}</div>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600,
+                color: a.amount_kzt > 0 ? 'var(--tp)' : 'var(--tm)',
+              }}>
+                ₸{fmt(a.amount_kzt)}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--tm)', marginTop: 4 }}>{a.count} {a.count === 1 ? 'счёт' : 'счёта'}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header">
           <div>
             <div className="card-title">РЕЕСТР ДЕБИТОРСКОЙ ЗАДОЛЖЕННОСТИ</div>
-            <div style={{ fontSize: 10, color: 'var(--tm)', marginTop: 3 }}>Контроль сроков оплаты</div>
+            <div style={{ fontSize: 10, color: 'var(--tm)', marginTop: 3 }}>Только непогашенные счета</div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <select className="filter-select"><option>Все клиенты</option></select>
-            <button className="btn btn-outline btn-sm">Отправить напоминание</button>
-          </div>
+          <button className="btn btn-outline btn-sm" onClick={reload}>↻ Обновить</button>
         </div>
         <table>
           <thead>
             <tr>
-              <th>Клиент</th><th>Счёт-фактура</th><th>Выставлен</th><th>Срок</th>
-              <th style={{ textAlign: 'right' }}>Дней</th><th style={{ textAlign: 'right' }}>Сумма, ₸</th><th>Статус</th>
+              <th>Счёт-фактура</th>
+              <th>Клиент</th>
+              <th>Товар</th>
+              <th>Срок</th>
+              <th style={{ textAlign: 'right' }}>Дней</th>
+              <th style={{ textAlign: 'right' }}>Сумма, ₸</th>
+              <th style={{ textAlign: 'right' }}>Оплачено</th>
+              <th>Статус</th>
+              <th style={{ textAlign: 'right' }}>Действие</th>
             </tr>
           </thead>
           <tbody>
-            {debts.map((d, i) => (
-              <tr key={i}>
-                <td className="td-bold">{d.client} <span className="td-muted" style={{ fontWeight: 400, fontSize: 10 }}>· {d.city}</span></td>
-                <td className="td-mono td-muted">{d.invoice}</td>
-                <td className="td-mono td-muted">{d.issued}</td>
-                <td className="td-mono">{d.due}</td>
-                <td className="td-right td-mono" style={{ color: d.statusClass === 's-overdue' ? 'var(--red)' : 'var(--ts)' }}>{d.days}</td>
-                <td className="td-neutral td-right">{d.amount}</td>
-                <td><span className={`status ${d.statusClass}`}>{d.status}</span></td>
-              </tr>
-            ))}
+            {!rows && (
+              <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--tm)', padding: 20 }}>Загрузка…</td></tr>
+            )}
+            {rows && rows.length === 0 && (
+              <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--tm)', padding: 20 }}>
+                Нет непогашенных счетов. Молодцы!
+              </td></tr>
+            )}
+            {rows?.map(d => {
+              const isOverdue = d.payment_status === 'overdue';
+              const dayLabel = isOverdue
+                ? `+${d.days_overdue}`
+                : d.days_until_due > 0 ? `−${d.days_until_due}` : '0';
+              return (
+                <tr key={d.id}>
+                  <td className="td-mono">{d.invoice_number ?? '#' + d.id}</td>
+                  <td className="td-bold">{d.customer_name ?? '—'}</td>
+                  <td className="td-muted" style={{ fontSize: 11 }}>{d.product_name ?? '—'}</td>
+                  <td className="td-mono">{d.due_date ?? '—'}</td>
+                  <td className="td-right td-mono" style={{ color: isOverdue ? 'var(--red)' : 'var(--ts)' }}>
+                    {dayLabel}
+                  </td>
+                  <td className="td-neutral td-right">{fmt(d.outstanding_kzt)}</td>
+                  <td className="td-mono td-right" style={{ color: 'var(--tm)' }}>{fmt(d.paid_kzt)}</td>
+                  <td><span className={`status ${STATUS_CLASS[d.payment_status] ?? 's-pending'}`}>
+                    {STATUS_LABEL[d.payment_status] ?? d.payment_status}
+                  </span></td>
+                  <td className="td-right">
+                    <button
+                      className="btn btn-outline btn-sm"
+                      disabled={busyId === d.id}
+                      onClick={() => handlePay(d.id)}
+                    >
+                      {busyId === d.id ? '…' : '✓ Оплачен'}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

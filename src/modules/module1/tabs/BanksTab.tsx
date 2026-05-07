@@ -1,52 +1,82 @@
-const banks = [
-  { accent: '#C9A227', logoColor: 'rgba(201,162,39,.15)', logoText: 'ДБ', bank: 'Дочерний Банк', name: 'Расчётный — Алматы', balance: '18 240 000', usd: '≈ $38 900', txns: 124, since: '2019' },
-  { accent: '#60A5FA', logoColor: 'rgba(96,165,250,.15)', logoText: 'КЗ', bank: 'Казком / Forte', name: 'Резервный счёт', balance: '12 680 000', usd: '≈ $27 100', txns: 47, since: '2021' },
-  { accent: '#34D399', logoColor: 'rgba(52,211,153,.15)', logoText: 'НБ', bank: 'Народный Банк', name: 'Текущий — Астана', balance: '8 940 000', usd: '≈ $19 100', txns: 89, since: '2020' },
-  { accent: '#a78bfa', logoColor: 'rgba(167,139,250,.15)', logoText: 'BI', name: 'Валютный счёт (USD)', bank: 'Bereke Bank', balance: '2 320 000', usd: '≈ $4 960', txns: 18, since: '2022' },
+import { useEffect, useMemo, useState } from 'react';
+import { api } from '../../../utils/api';
+
+type Account = Awaited<ReturnType<typeof api.listAccounts>>[number];
+
+// Карточные акценты — циклически по индексу из backend
+const ACCENTS = [
+  { color: '#C9A227', bg: 'rgba(201,162,39,.15)', logo: 'KS' },
+  { color: '#60A5FA', bg: 'rgba(96,165,250,.15)', logo: 'HL' },
+  { color: '#34D399', bg: 'rgba(52,211,153,.15)', logo: 'BC' },
+  { color: '#a78bfa', bg: 'rgba(167,139,250,.15)', logo: 'BR' },
 ];
 
-const txns = [
-  { date: '01.05.26', bank: 'ДБ Алматы', desc: 'Поступление — ТОО АвтоАлмат', type: 'in', amount: '+3 420 000' },
-  { date: '01.05.26', bank: 'ДБ Алматы', desc: 'Оплата Tushun #TR-0441', type: 'out', amount: '−8 760 000' },
-  { date: '30.04.26', bank: 'Forte', desc: 'Зарплата персонала', type: 'out', amount: '−4 120 000' },
-  { date: '29.04.26', bank: 'НБ Астана', desc: 'Поступление — ИП Сейткали', type: 'in', amount: '+1 850 000' },
-  { date: '28.04.26', bank: 'ДБ Алматы', desc: 'Таможня + фрахт КТ-09', type: 'out', amount: '−2 340 000' },
-  { date: '27.04.26', bank: 'Forte', desc: 'Аренда склада Алматы', type: 'out', amount: '−1 350 000' },
-];
+const fmt = (n: number) => Math.round(n).toLocaleString('ru-RU');
+
+const USD_RATE = 450; // должно приходить с бэка из app_settings, пока default
 
 export default function BanksTab() {
+  const [accounts, setAccounts] = useState<Account[] | null>(null);
+
+  useEffect(() => {
+    api.listAccounts().then(setAccounts).catch(() => setAccounts([]));
+  }, []);
+
+  const totals = useMemo(() => {
+    if (!accounts) return { kzt: 0, usd: 0, usdEqKzt: 0 };
+    const kzt = accounts.filter(a => a.currency === 'KZT').reduce((s, a) => s + a.balance, 0);
+    const usd = accounts.filter(a => a.currency === 'USD').reduce((s, a) => s + a.balance, 0);
+    return { kzt, usd, usdEqKzt: usd * USD_RATE };
+  }, [accounts]);
+
   return (
     <>
       <div className="bank-grid">
-        {banks.map((b, i) => (
-          <div key={i} className="bank-card">
-            <div className="bank-card-accent" style={{ background: b.accent }} />
-            <div className="bank-logo" style={{ background: b.logoColor, color: b.accent }}>{b.logoText}</div>
-            <div className="bank-name">{b.bank}</div>
-            <div className="bank-account-name">{b.name}</div>
-            <div className="bank-balance">
-              <span className="bank-balance-cur">₸</span>
-              {b.balance}
+        {!accounts && (
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--tm)', padding: 30 }}>Загрузка счетов…</div>
+        )}
+        {accounts?.map((a, i) => {
+          const accent = ACCENTS[i % ACCENTS.length];
+          // Пытаемся вытащить инициалы банка
+          const initials = (a.bank_name ?? a.account_number).split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase();
+          return (
+            <div key={a.id} className="bank-card">
+              <div className="bank-card-accent" style={{ background: accent.color }} />
+              <div className="bank-logo" style={{ background: accent.bg, color: accent.color }}>{initials || accent.logo}</div>
+              <div className="bank-name">{a.bank_name ?? '—'}</div>
+              <div className="bank-account-name">
+                {a.currency === 'KZT' ? 'Расчётный KZT' : `Валютный ${a.currency}`}
+              </div>
+              <div className="bank-balance">
+                <span className="bank-balance-cur">{a.currency === 'KZT' ? '₸' : '$'}</span>
+                {fmt(a.balance)}
+              </div>
+              <div className="bank-balance-usd">
+                {a.currency === 'KZT'
+                  ? `≈ $${fmt(a.balance / USD_RATE)}`
+                  : `≈ ₸${fmt(a.balance * USD_RATE)}`}
+              </div>
+              <div className="bank-footer">
+                <span className="bank-status-active">Активен</span>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--tm)' }}>{a.account_number}</span>
+              </div>
             </div>
-            <div className="bank-balance-usd">{b.usd}</div>
-            <div className="bank-footer">
-              <span className="bank-status-active">Активен</span>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--tm)' }}>{b.txns} операций · с {b.since}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="card">
         <div className="card-header">
           <div className="card-title">ИТОГО ПО ВСЕМ СЧЕТАМ</div>
-          <span className="card-badge badge-gold">₸42 180 000</span>
+          <span className="card-badge badge-gold">
+            ≈ ₸{accounts ? fmt(totals.kzt + totals.usdEqKzt) : '…'}
+          </span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: 'var(--border)', borderRadius: 10, overflow: 'hidden' }}>
           {[
-            { icon: '₸', label: 'Баланс KZT', val: '42 180 000', sub: '4 счёта активны' },
-            { icon: '$', label: 'Баланс USD', val: '90 060', sub: '≈ ₸42.2М по курсу' },
-            { icon: '↕', label: 'Оборот — май', val: '85 456 000', sub: 'вх. + исх.' },
+            { icon: '₸', label: 'Баланс KZT', val: fmt(totals.kzt), sub: `${accounts?.filter(a => a.currency === 'KZT').length ?? 0} счёта` },
+            { icon: '$', label: 'Баланс USD', val: fmt(totals.usd), sub: `≈ ₸${fmt(totals.usdEqKzt)} по курсу ${USD_RATE}` },
+            { icon: '↕', label: 'Курс USD/KZT', val: USD_RATE.toString(), sub: 'из app_settings' },
           ].map((c, i) => (
             <div key={i} style={{ background: 'var(--bg-card)', padding: '18px 20px' }}>
               <div style={{ fontSize: 22, marginBottom: 8, fontFamily: 'var(--mono)', color: 'var(--gold)' }}>{c.icon}</div>
@@ -60,24 +90,15 @@ export default function BanksTab() {
 
       <div className="card">
         <div className="card-header">
-          <div className="card-title">ПОСЛЕДНИЕ БАНКОВСКИЕ ОПЕРАЦИИ</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <select className="filter-select"><option>Все банки</option><option>ДБ Алматы</option><option>Forte</option><option>НБ Астана</option></select>
+          <div className="card-title">
+            ПОСЛЕДНИЕ БАНКОВСКИЕ ОПЕРАЦИИ
+            <span style={{ fontSize: 10, color: 'var(--tm)', fontWeight: 400, marginLeft: 8 }}>· cash_transactions API в Phase 2.4</span>
           </div>
         </div>
-        <table>
-          <thead><tr><th>Дата</th><th>Банк</th><th>Описание</th><th style={{ textAlign: 'right' }}>Сумма, ₸</th></tr></thead>
-          <tbody>
-            {txns.map((t, i) => (
-              <tr key={i}>
-                <td className="td-mono td-muted">{t.date}</td>
-                <td className="td-mono td-muted">{t.bank}</td>
-                <td className="td-bold">{t.desc}</td>
-                <td className={`td-right ${t.type === 'in' ? 'td-pos' : 'td-neg'}`}>{t.amount}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--tm)', fontSize: 12 }}>
+          Транзакции по счетам появятся когда подключим эндпойнт <code style={{ background: 'var(--bg-el)', padding: '2px 6px', borderRadius: 4, fontFamily: 'var(--mono)', fontSize: 10 }}>/api/finance/cash-transactions</code>.<br />
+          Пока остатки видны выше — они обновляются после операций (когда такой эндпойнт появится).
+        </div>
       </div>
     </>
   );

@@ -9,10 +9,8 @@ from app.models import Product, SaleItem, db
 bp = Blueprint('sales', __name__, url_prefix='/api/sales')
 
 
-@bp.get('/')
-def list_sales():
-    sales = SaleItem.query.order_by(SaleItem.created_at.desc()).limit(200).all()
-    return jsonify([{
+def _sale_dict(s):
+    return {
         'id': s.id,
         'invoice_number': s.invoice_number,
         'product_id': s.product_id,
@@ -29,7 +27,16 @@ def list_sales():
         'net_profit_kzt': s.net_profit_kzt,
         'sale_date': s.sale_date.isoformat() if s.sale_date else None,
         'status': s.status,
-    } for s in sales])
+        'payment_status': s.payment_status,
+        'due_date': s.due_date.isoformat() if s.due_date else None,
+        'paid_kzt': s.paid_kzt,
+    }
+
+
+@bp.get('/')
+def list_sales():
+    sales = SaleItem.query.order_by(SaleItem.created_at.desc()).limit(200).all()
+    return jsonify([_sale_dict(s) for s in sales])
 
 
 @bp.post('/')

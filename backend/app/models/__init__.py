@@ -12,4 +12,5 @@ from app.models.database import (  # noqa: E402, F401
     CashTransaction,
     User,
     AppSetting,
+    BudgetPlan,
 )

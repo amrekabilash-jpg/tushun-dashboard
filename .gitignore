@@ -41,4 +41,8 @@ src-tauri/target/
 secrets*.md
 *.secret.*
 .env
-.env.*
+.env.local
+.env.*.local
+# но шаблоны и production-URL не секрет → коммитятся
+!.env.example
+!.env.production

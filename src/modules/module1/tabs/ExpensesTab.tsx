@@ -1,68 +1,76 @@
+import { useEffect, useMemo, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { api } from '../../../utils/api';
 
+// Помесячная динамика — пока demo (нужен monthly bucket в backend)
 const trendData = [
-  { month: 'Янв', purchase: 18000, logistics: 3200, salary: 4100, rent: 2100, marketing: 600 },
-  { month: 'Фев', purchase: 19400, logistics: 3800, salary: 4100, rent: 2100, marketing: 750 },
-  { month: 'Мар', purchase: 17800, logistics: 3500, salary: 4100, rent: 2100, marketing: 680 },
-  { month: 'Апр', purchase: 24200, logistics: 4200, salary: 4120, rent: 2100, marketing: 800 },
-  { month: 'Май', purchase: 26800, logistics: 4900, salary: 4100, rent: 2100, marketing: 820 },
+  { month: 'Янв', purchase: 18000, logistics: 3200, salary: 4100, rent: 2100 },
+  { month: 'Фев', purchase: 19400, logistics: 3800, salary: 4100, rent: 2100 },
+  { month: 'Мар', purchase: 17800, logistics: 3500, salary: 4100, rent: 2100 },
+  { month: 'Апр', purchase: 24200, logistics: 4200, salary: 4120, rent: 2100 },
+  { month: 'Май', purchase: 26800, logistics: 4900, salary: 4100, rent: 2100 },
 ];
 
-const categories = [
-  { icon: '📦', name: 'Закупка товара', val: '₸26.8М', pct: '65% от расходов' },
-  { icon: '🚢', name: 'Логистика / таможня', val: '₸4.9М', pct: '12% от расходов' },
-  { icon: '👥', name: 'Зарплата', val: '₸4.1М', pct: '10% от расходов' },
-  { icon: '🏢', name: 'Аренда', val: '₸2.1М', pct: '5% от расходов' },
-  { icon: '📢', name: 'Маркетинг и реклама', val: '₸820К', pct: '2% от расходов' },
-  { icon: '💡', name: 'Коммунальные услуги', val: '₸490К', pct: '1.2% от расходов' },
-  { icon: '🍽️', name: 'Еда / хозрасходы', val: '₸310К', pct: '0.8% от расходов' },
-  { icon: '⚡', name: 'Непредвиденные', val: '₸680К', pct: '1.7% от расходов' },
-];
+type Summary = Awaited<ReturnType<typeof api.getCashSummary>>;
+type Tx = Awaited<ReturnType<typeof api.listCashTransactions>>['rows'][number];
 
-const salaryDepts = [
-  { name: 'Менеджеры продаж (3)', val: '₸1 500 000', pct: 37, color: '#a78bfa' },
-  { name: 'Склад Алматы (4)', val: '₸1 000 000', pct: 24, color: '#60A5FA' },
-  { name: 'Склад Астана (2)', val: '₸520 000', pct: 13, color: '#34D399' },
-  { name: 'Бухгалтерия (2)', val: '₸620 000', pct: 15, color: '#fbbf24' },
-  { name: 'Администрация (1)', val: '₸460 000', pct: 11, color: '#F87171' },
-];
+const fmt = (n: number) => Math.round(n).toLocaleString('ru-RU');
+const fmtMln = (n: number) => n >= 1_000_000 ? `₸${(n / 1_000_000).toFixed(1)}М` : `₸${(n / 1000).toFixed(0)}К`;
 
-const rentItems = [
-  { name: 'Склад Алматы (1200м²)', val: '₸1 350 000', pct: 64, color: '#F87171' },
-  { name: 'Офис Алматы', val: '₸450 000', pct: 21, color: '#fbbf24' },
-  { name: 'Склад Астана (400м²)', val: '₸300 000', pct: 14, color: '#a78bfa' },
-];
-
-const expenses = [
-  { date: '01.05.26', cat: 'Закупка', catClass: 'cat-purchase', desc: 'Tushun — партия #TR-0441', supplier: 'Tushun Auto Parts, CN', doc: 'ТН-441', amount: '−8 760 000' },
-  { date: '30.04.26', cat: 'Зарплата', catClass: 'cat-salary', desc: 'Зарплата персонала — апрель', supplier: '12 сотрудников', doc: 'ВЕД-04', amount: '−4 120 000' },
-  { date: '28.04.26', cat: 'Логистика', catClass: 'cat-logistics', desc: 'Таможенное оформление + фрахт', supplier: 'ТОО КазЭкспедиция', doc: 'СФ-КЭ-88', amount: '−2 340 000' },
-  { date: '27.04.26', cat: 'Аренда', catClass: 'cat-rent', desc: 'Аренда склада Алматы — май', supplier: 'ТОО АлматыПрим', doc: 'ДОГ-12', amount: '−1 350 000' },
-  { date: '25.04.26', cat: 'Маркетинг', catClass: 'cat-market', desc: 'Реклама Instagram + 2ГИС', supplier: 'Digital Agency', doc: 'АКТ-33', amount: '−420 000' },
-  { date: '24.04.26', cat: 'Коммунальные', catClass: 'cat-util', desc: 'Электричество + интернет (склад)', supplier: 'АЛЭС / Кселл', doc: 'КВ-044', amount: '−310 000' },
-  { date: '22.04.26', cat: 'Логистика', catClass: 'cat-logistics', desc: 'Доставка клиентам — апрель', supplier: 'ТОО КазДоставка', doc: 'АКТ-29', amount: '−580 000' },
-  { date: '20.04.26', cat: 'Еда/хоз', catClass: 'cat-food', desc: 'Хозтовары для офиса и склада', supplier: 'Магазин', doc: 'ЧЕК', amount: '−180 000' },
-  { date: '15.04.26', cat: 'Непредвид.', catClass: 'cat-other', desc: 'Ремонт погрузчика', supplier: 'ИП Серик М.', doc: 'АКТ-21', amount: '−380 000' },
-];
+const CATEGORY_META: Record<string, { icon: string; label: string; cssClass: string }> = {
+  purchase:  { icon: '📦', label: 'Закупка товара',       cssClass: 'cat-purchase' },
+  logistics: { icon: '🚢', label: 'Логистика / таможня',  cssClass: 'cat-logistics' },
+  salary:    { icon: '👥', label: 'Зарплата',             cssClass: 'cat-salary' },
+  rent:      { icon: '🏢', label: 'Аренда',               cssClass: 'cat-rent' },
+  marketing: { icon: '📢', label: 'Маркетинг и реклама',  cssClass: 'cat-market' },
+  utilities: { icon: '💡', label: 'Коммунальные услуги',  cssClass: 'cat-util' },
+  tax:       { icon: '🧾', label: 'Налоги',               cssClass: 'cat-other' },
+  other:     { icon: '⚡', label: 'Прочие расходы',       cssClass: 'cat-food' },
+  sales:     { icon: '💰', label: 'Поступления',          cssClass: 'cat-income' },
+};
 
 export default function ExpensesTab() {
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [txs, setTxs] = useState<Tx[] | null>(null);
+  const [filterCat, setFilterCat] = useState<string>('all');
+
+  useEffect(() => {
+    api.getCashSummary(30).then(setSummary).catch(() => setSummary(null));
+    api.listCashTransactions(30).then(d => setTxs(d.rows)).catch(() => setTxs([]));
+  }, []);
+
+  const expenses = useMemo(() => {
+    const filtered = (txs ?? []).filter(t => t.type === 'expense');
+    if (filterCat === 'all') return filtered;
+    return filtered.filter(t => t.category === filterCat);
+  }, [txs, filterCat]);
+
   return (
     <>
       <div className="exp-cat-grid">
-        {categories.map((c) => (
-          <div key={c.name} className="exp-cat-card">
-            <div className="exp-cat-icon">{c.icon}</div>
-            <div className="exp-cat-name">{c.name}</div>
-            <div className="exp-cat-val">{c.val}</div>
-            <div className="exp-cat-pct">{c.pct}</div>
-          </div>
-        ))}
+        {!summary && (
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--tm)', padding: 30 }}>Загрузка…</div>
+        )}
+        {summary?.by_category.map(c => {
+          const meta = CATEGORY_META[c.category] ?? { icon: '•', label: c.category, cssClass: 'cat-other' };
+          return (
+            <div key={c.category} className="exp-cat-card">
+              <div className="exp-cat-icon">{meta.icon}</div>
+              <div className="exp-cat-name">{meta.label}</div>
+              <div className="exp-cat-val">{fmtMln(c.total_kzt)}</div>
+              <div className="exp-cat-pct">{c.percent_of_expenses}% от расходов</div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="charts-row">
         <div className="card">
           <div className="card-header">
-            <div className="card-title">ДИНАМИКА РАСХОДОВ ПО КАТЕГОРИЯМ</div>
+            <div className="card-title">
+              ДИНАМИКА РАСХОДОВ ПО КАТЕГОРИЯМ
+              <span style={{ fontSize: 9, color: 'var(--tm)', fontWeight: 400, marginLeft: 6 }}>· demo</span>
+            </div>
             <span className="card-badge badge-gold">Янв — Май 2026</span>
           </div>
           <div className="chart-wrap">
@@ -90,27 +98,25 @@ export default function ExpensesTab() {
 
         <div className="card">
           <div className="card-header">
-            <div className="card-title">ЗАРПЛАТА ПО ОТДЕЛАМ</div>
-            <span className="card-badge badge-gold">₸4.1М</span>
+            <div className="card-title">СТРУКТУРА · 30 ДНЕЙ</div>
+            <span className="card-badge badge-gold">{summary ? fmtMln(summary.expense_kzt) : '…'}</span>
           </div>
           <div className="hbar-list" style={{ marginTop: 8 }}>
-            {salaryDepts.map((d) => (
-              <div key={d.name} className="hbar-item">
-                <div className="hbar-meta"><span className="hbar-name">{d.name}</span><span className="hbar-val">{d.val}</span></div>
-                <div className="hbar-track"><div className="hbar-fill" style={{ width: `${d.pct}%`, background: d.color }} /></div>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 10, color: 'var(--tm)', marginBottom: 6 }}>Аренда по объектам</div>
-            <div className="hbar-list">
-              {rentItems.map((r) => (
-                <div key={r.name} className="hbar-item">
-                  <div className="hbar-meta"><span className="hbar-name">{r.name}</span><span className="hbar-val">{r.val}</span></div>
-                  <div className="hbar-track"><div className="hbar-fill" style={{ width: `${r.pct}%`, background: r.color }} /></div>
+            {summary?.by_category.slice(0, 8).map((c, i) => {
+              const meta = CATEGORY_META[c.category] ?? { label: c.category, icon: '•' };
+              const colors = ['#60A5FA', '#a78bfa', '#fbbf24', '#F87171', '#34D399', '#6EE7B7', '#FBBF24', '#9CA3AF'];
+              return (
+                <div key={c.category} className="hbar-item">
+                  <div className="hbar-meta">
+                    <span className="hbar-name">{meta.icon} {meta.label}</span>
+                    <span className="hbar-val">{fmtMln(c.total_kzt)}</span>
+                  </div>
+                  <div className="hbar-track">
+                    <div className="hbar-fill" style={{ width: `${c.percent_of_expenses}%`, background: colors[i % colors.length] }} />
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -119,23 +125,35 @@ export default function ExpensesTab() {
         <div className="card-header">
           <div className="card-title">ДЕТАЛЬНЫЙ РЕЕСТР РАСХОДОВ</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <select className="filter-select"><option>Все категории</option><option>Закупка</option><option>Логистика</option><option>Зарплата</option><option>Аренда</option></select>
-            <button className="btn btn-outline btn-sm">+ Добавить расход</button>
+            <select className="filter-select" value={filterCat} onChange={e => setFilterCat(e.target.value)}>
+              <option value="all">Все категории</option>
+              {Object.entries(CATEGORY_META).filter(([k]) => k !== 'sales').map(([k, m]) => (
+                <option key={k} value={k}>{m.label}</option>
+              ))}
+            </select>
+            <button className="btn btn-outline btn-sm" disabled title="Phase 2.5">+ Добавить расход</button>
           </div>
         </div>
         <table>
-          <thead><tr><th>Дата</th><th>Категория</th><th>Описание</th><th>Поставщик / Получатель</th><th>Документ</th><th style={{ textAlign: 'right' }}>Сумма, ₸</th></tr></thead>
+          <thead><tr><th>Дата</th><th>Категория</th><th>Описание</th><th>Контрагент</th><th>Счёт</th><th style={{ textAlign: 'right' }}>Сумма, ₸</th></tr></thead>
           <tbody>
-            {expenses.map((e, i) => (
-              <tr key={i}>
-                <td className="td-mono td-muted">{e.date}</td>
-                <td><span className={`cat ${e.catClass}`}>{e.cat}</span></td>
-                <td className="td-bold">{e.desc}</td>
-                <td className="td-muted">{e.supplier}</td>
-                <td className="td-mono td-muted">{e.doc}</td>
-                <td className="td-neg td-right">{e.amount}</td>
-              </tr>
-            ))}
+            {!txs && (<tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--tm)', padding: 20 }}>Загрузка…</td></tr>)}
+            {txs && expenses.length === 0 && (
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--tm)', padding: 20 }}>Нет расходов в этой категории</td></tr>
+            )}
+            {expenses.map((e) => {
+              const meta = CATEGORY_META[e.category ?? 'other'] ?? CATEGORY_META.other;
+              return (
+                <tr key={e.id}>
+                  <td className="td-mono td-muted">{e.transaction_date}</td>
+                  <td><span className={`cat ${meta.cssClass}`}>{meta.label.split(' ')[0]}</span></td>
+                  <td className="td-bold">{e.description ?? '—'}</td>
+                  <td className="td-muted">{e.counterparty ?? '—'}</td>
+                  <td className="td-mono td-muted">{e.bank_name ?? '—'}</td>
+                  <td className="td-neg td-right">−{fmt(e.amount_kzt)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -1,8 +1,17 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie,
 } from 'recharts';
+import { api } from '../../../utils/api';
+
+// ───────────────────────────────────────────────────
+// LIVE DATA: KPI + операции — из backend (Phase 2 step 1)
+// hardcoded: revenue chart / donut / cashgap / P&L / debtors —
+//  будут переподключены в следующих итерациях (нужны таблицы:
+//  expenses, monthly_pl, accounts_receivable_due_dates).
+// ───────────────────────────────────────────────────
 
 const revenueData = [
   { month: 'Янв', revenue: 38200, expenses: 28400, profit: 9800 },
@@ -10,16 +19,6 @@ const revenueData = [
   { month: 'Мар', revenue: 39800, expenses: 29600, profit: 10200 },
   { month: 'Апр', revenue: 49800, expenses: 37100, profit: 12700 },
   { month: 'Май', revenue: 55600, expenses: 41200, profit: 14400 },
-];
-
-const transactions = [
-  { date: '01 Май', desc: 'Продажа — ТОО АвтоАлмат', catKey: 'cat_income', catClass: 'cat-income', amount: +3420000 },
-  { date: '01 Май', desc: 'Оплата Tushun — партия #TR-0441', catKey: 'cat_purchase', catClass: 'cat-purchase', amount: -8760000 },
-  { date: '30 Апр', desc: 'Зарплата сотрудников — апрель', catKey: 'cat_salary', catClass: 'cat-salary', amount: -4120000 },
-  { date: '29 Апр', desc: 'Продажа — ИП Сейткали Е.Р.', catKey: 'cat_income', catClass: 'cat-income', amount: +1850000 },
-  { date: '28 Апр', desc: 'Таможня + фрахт — контейнер #CT-09', catKey: 'cat_logistics', catClass: 'cat-logistics', amount: -2340000 },
-  { date: '27 Апр', desc: 'Аренда склада Алматы — май', catKey: 'cat_rent', catClass: 'cat-rent', amount: -950000 },
-  { date: '25 Апр', desc: 'Продажа — ТОО КазФильтр, Астана', catKey: 'cat_income', catClass: 'cat-income', amount: +5680000 },
 ];
 
 const debtors = [
@@ -31,6 +30,24 @@ const debtors = [
 
 const fmt = (n: number) =>
   (n > 0 ? '+' : '') + n.toLocaleString('ru-RU');
+
+const fmtKzt = (n: number) =>
+  Math.round(n).toLocaleString('ru-RU');
+
+interface LiveKpi {
+  revenue: number;
+  cost: number;
+  netProfit: number;
+  marginPct: number;
+}
+
+interface LiveTx {
+  date: string;
+  desc: string;
+  catKey: string;
+  catClass: string;
+  amount: number;
+}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
@@ -50,6 +67,42 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function OverviewTab() {
   const { t } = useTranslation();
+
+  const [kpi, setKpi] = useState<LiveKpi | null>(null);
+  const [liveTxs, setLiveTxs] = useState<LiveTx[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [pl, sales] = await Promise.all([
+          api.getProfitLoss(30),
+          api.listSales(),
+        ]);
+        if (cancelled) return;
+        setKpi({
+          revenue: pl.revenue_kzt,
+          cost: pl.cost_kzt,
+          netProfit: pl.net_profit_kzt,
+          marginPct: pl.gross_margin_percent,
+        });
+        const txs: LiveTx[] = sales.slice(0, 7).map(s => ({
+          date: s.sale_date ?? '—',
+          desc: `${s.invoice_number ?? '#' + s.id} · ${s.customer_name ?? 'клиент'}`,
+          catKey: 'cat_income',
+          catClass: 'cat-income',
+          amount: s.total_revenue_kzt,
+        }));
+        setLiveTxs(txs);
+      } catch {
+        if (!cancelled) {
+          setKpi(null);
+          setLiveTxs([]);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const donutData = [
     { nameKey: 'exp_purchase', value: 65, color: '#60A5FA' },
@@ -73,42 +126,38 @@ export default function OverviewTab() {
 
   return (
     <>
-      {/* KPI ROW */}
+      {/* KPI ROW — реальные данные из /api/finance/pl?days=30 */}
       <div className="kpi-row">
         <div className="kpi-card">
           <div className="kpi-icon">
             <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M2.5 14V10M6 14V7M9.5 14V10M13 14V4" stroke="#34D399" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </div>
           <div className="kpi-label">{t('overview.kpi_revenue')}</div>
-          <div className="kpi-value"><span className="cur">₸</span>55 600</div>
-          <div className="kpi-delta up">▲ 11.6%</div>
-          <div className="kpi-sub">{t('overview.vs_april')}</div>
+          <div className="kpi-value"><span className="cur">₸</span>{kpi ? fmtKzt(kpi.revenue) : '…'}</div>
+          <div className="kpi-sub">за 30 дней · live</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-icon">
             <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M3 6h11M3 9.5h7M3 13h4" stroke="#F87171" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </div>
           <div className="kpi-label">{t('overview.kpi_expenses')}</div>
-          <div className="kpi-value"><span className="cur">₸</span>41 200</div>
-          <div className="kpi-delta dn">▲ 11.1%</div>
-          <div className="kpi-sub">{t('overview.vs_april')}</div>
+          <div className="kpi-value"><span className="cur">₸</span>{kpi ? fmtKzt(kpi.cost) : '…'}</div>
+          <div className="kpi-sub">себестоимость · live</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-icon">
             <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M8.5 3v1.2M8.5 12.8v1.2M5.2 5.2l.85.85M11.1 11.1l.85.85M3.5 8.5h1.2M12.3 8.5h1.2" stroke="#C9A227" strokeWidth="1.3" strokeLinecap="round"/></svg>
           </div>
           <div className="kpi-label">{t('overview.kpi_profit')}</div>
-          <div className="kpi-value"><span className="cur">₸</span>14 400</div>
-          <div className="kpi-delta up">▲ 18.5%</div>
-          <div className="kpi-sub">{t('overview.vs_april')}</div>
+          <div className="kpi-value"><span className="cur">₸</span>{kpi ? fmtKzt(kpi.netProfit) : '…'}</div>
+          <div className="kpi-sub">после налогов · live</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-icon">
             <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M3.5 13.5L13.5 3.5M10.5 3.5h3v3" stroke="#60A5FA" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </div>
           <div className="kpi-label">{t('overview.kpi_margin')}</div>
-          <div className="kpi-value">25.9<span className="cur">%</span></div>
-          <div className="kpi-delta up">▲ 0.4пп</div>
+          <div className="kpi-value">{kpi ? kpi.marginPct.toFixed(1) : '…'}<span className="cur">%</span></div>
           <div className="kpi-sub">{t('overview.plan_pct')}</div>
         </div>
       </div>
@@ -204,7 +253,13 @@ export default function OverviewTab() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((tx, i) => (
+              {!liveTxs && (
+                <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--tm)', padding: '20px 0' }}>Загрузка…</td></tr>
+              )}
+              {liveTxs && liveTxs.length === 0 && (
+                <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--tm)', padding: '20px 0' }}>Пока нет операций</td></tr>
+              )}
+              {liveTxs?.map((tx, i) => (
                 <tr key={i}>
                   <td className="td-mono td-muted">{tx.date}</td>
                   <td className="td-bold">{tx.desc}</td>

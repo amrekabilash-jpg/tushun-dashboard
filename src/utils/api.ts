@@ -1,8 +1,17 @@
 /**
- * Минимальный API-клиент для Flask backend на 127.0.0.1:5000.
- * Не использует токены пока — добавится когда auth перейдёт на сервер.
+ * API-клиент.
+ *
+ * URL берём из VITE_API_URL (Vite env var). Если переменная не задана —
+ * fallback на 127.0.0.1:5000 (локальный dev).
+ *
+ * .env / .env.production задают эти значения для разных билдов.
+ * VITE_API_URL должна включать схему и хост, БЕЗ trailing slash.
  */
-const BASE_URL = 'http://127.0.0.1:5000';
+const BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:5000').replace(/\/$/, '');
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
+  console.log('[api] BASE_URL =', BASE_URL);
+}
 
 export class ApiError extends Error {
   status: number;
@@ -158,6 +167,88 @@ export const api = {
       currency: string; balance: number;
     }[]>('/api/finance/accounts'),
 
+  listCashTransactions: (days = 30) =>
+    request<{
+      period_days: number;
+      rows: {
+        id: number;
+        account_id: number;
+        bank_name: string | null;
+        account_number: string;
+        currency: string;
+        type: 'income' | 'expense' | 'transfer';
+        category: string | null;
+        amount_kzt: number;
+        description: string | null;
+        counterparty: string | null;
+        transaction_date: string | null;
+      }[];
+    }>(`/api/finance/cash-transactions/?days=${days}`),
+
+  listReceivables: () =>
+    request<{
+      id: number;
+      invoice_number: string | null;
+      customer_name: string | null;
+      product_name: string | null;
+      sale_date: string | null;
+      due_date: string | null;
+      days_overdue: number;
+      days_until_due: number;
+      total_kzt: number;
+      paid_kzt: number;
+      outstanding_kzt: number;
+      payment_status: string;
+      aging_bucket: 'current' | '0-30' | '31-60' | '61-90' | '90+' | null;
+    }[]>('/api/finance/receivables/'),
+
+  getReceivablesSummary: () =>
+    request<{
+      total_outstanding_kzt: number;
+      total_overdue_kzt: number;
+      overdue_count: number;
+      pending_count: number;
+      aging: { bucket: string; amount_kzt: number; count: number }[];
+    }>('/api/finance/receivables/summary'),
+
+  markPaid: (saleId: number, amountKzt?: number) =>
+    request<{
+      id: number; payment_status: string; paid_kzt: number; outstanding_kzt: number;
+    }>(`/api/finance/receivables/${saleId}/pay`, {
+      method: 'POST',
+      body: JSON.stringify(amountKzt !== undefined ? { amount_kzt: amountKzt } : {}),
+    }),
+
+  getPlanVsFact: (year: number, month: number) =>
+    request<{
+      year: number;
+      month: number;
+      period_start: string;
+      period_end: string;
+      main_rows: {
+        metric: string; label: string;
+        plan_kzt: number; fact_kzt: number; diff_kzt: number; achievement_percent: number;
+      }[];
+      expense_rows: {
+        metric: string; label: string;
+        plan_kzt: number; fact_kzt: number; diff_kzt: number; achievement_percent: number;
+      }[];
+    }>(`/api/finance/budget/plan-vs-fact?year=${year}&month=${month}`),
+
+  getCashSummary: (days = 30) =>
+    request<{
+      period_days: number;
+      income_kzt: number;
+      expense_kzt: number;
+      net_kzt: number;
+      by_category: {
+        category: string;
+        total_kzt: number;
+        count: number;
+        percent_of_expenses: number;
+      }[];
+    }>(`/api/finance/cash-transactions/summary?days=${days}`),
+
   getProfitLoss: (days = 30) =>
     request<{
       period_days: number; period_start: string; period_end: string;
@@ -188,6 +279,7 @@ export const api = {
       gross_margin_kzt: number; gross_margin_percent: number;
       vat_to_pay_kzt: number; kpn_tax_kzt: number; net_profit_kzt: number;
       sale_date: string | null; status: string;
+      payment_status: string | null; due_date: string | null; paid_kzt: number;
     }[]>('/api/sales/'),
 
   createSale: (payload: {

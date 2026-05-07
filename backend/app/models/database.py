@@ -1,5 +1,6 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
+from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
 
 from app.models import db
@@ -135,9 +136,27 @@ class SaleItem(db.Model):
 
     sale_date = db.Column(db.Date, default=date.today)
     status = db.Column(db.String(50), default='sold')
+    # Дебиторка: статус оплаты + плановая дата + фактически оплачено
+    payment_status = db.Column(db.String(20), default='pending')  # paid | pending | overdue | partial
+    due_date = db.Column(db.Date, nullable=True)
+    paid_kzt = db.Column(db.Float, default=0)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     product = db.relationship('Product', back_populates='sale_items')
+
+
+class BudgetPlan(db.Model):
+    """Плановые показатели по месяцам (для таба План vs Факт)."""
+    __tablename__ = 'budget_plan'
+
+    id = db.Column(db.Integer, primary_key=True)
+    year = db.Column(db.Integer, nullable=False)
+    month = db.Column(db.Integer, nullable=False)        # 1..12
+    metric = db.Column(db.String(50), nullable=False)    # revenue | cost | gross_margin | net_profit | expenses_<cat>
+    plan_kzt = db.Column(db.Float, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('year', 'month', 'metric', name='uq_budget_year_month_metric'),)
 
 
 class Account(db.Model):
@@ -156,10 +175,13 @@ class CashTransaction(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False)
-    transaction_type = db.Column(db.String(50), nullable=False)  # income | expense
+    transaction_type = db.Column(db.String(50), nullable=False)   # income | expense | transfer
+    category = db.Column(db.String(50), nullable=True)             # purchase | salary | rent | logistics | utilities | marketing | tax | other
     amount_kzt = db.Column(db.Float, nullable=False)
     description = db.Column(db.String(255), nullable=True)
+    counterparty = db.Column(db.String(255), nullable=True)
     transaction_date = db.Column(db.Date, default=date.today)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class User(db.Model):
@@ -198,6 +220,99 @@ SEED_USER = {
     'role': 'admin',
 }
 
+# Демо cash_transactions: реалистичные расходы и поступления за последний месяц
+SEED_CASH_TX = [
+    # account_idx (0-based), type, category, amount_kzt, description, counterparty, days_ago
+    (0, 'income',  'sales',     3_420_000, 'Поступление по СФ-2026-101',         'ТОО АвтоАлмат',     1),
+    (0, 'expense', 'purchase',  8_760_000, 'Оплата Tushun — партия #BATCH-2026-001', 'Tushun Co., Ltd', 2),
+    (1, 'expense', 'salary',    4_120_000, 'Зарплата сотрудников — апрель',      'Сотрудники',         5),
+    (2, 'income',  'sales',     1_850_000, 'Поступление по СФ-2026-105',         'СТО Рахмет',         6),
+    (0, 'expense', 'logistics', 2_340_000, 'Таможня + морской фрахт',            'Брокер ТЭО',         7),
+    (1, 'expense', 'rent',        950_000, 'Аренда склада Алматы — май',         'ИП Жанатов',         8),
+    (1, 'expense', 'utilities',   180_000, 'Коммунальные платежи',               'Алматы Энерго',     10),
+    (1, 'expense', 'marketing',   420_000, 'Реклама — Kaspi Reklama',            'Kaspi',             11),
+    (0, 'income',  'sales',     5_680_000, 'Поступление по СФ-2026-103',         'АвтоПарк KZ',       13),
+    (2, 'expense', 'tax',         706_676, 'НДС к уплате — апрель',              'Налоговая',         15),
+    (1, 'expense', 'other',       320_000, 'Канцелярия + хоз.расходы',            'Прочие',            18),
+    (0, 'income',  'sales',     2_212_000, 'Поступление по СФ-2026-100',         'AutoParts KZ',      20),
+]
+
+
+def _migrate_sqlite_columns() -> None:
+    """SQLite не делает ALTER при db.create_all() — добавляем колонки вручную.
+
+    Запускается при каждом старте; пропускает уже существующие колонки.
+    """
+    insp = inspect(db.engine)
+    if 'sale_items' in insp.get_table_names():
+        sale_cols = {c['name'] for c in insp.get_columns('sale_items')}
+        with db.engine.begin() as conn:
+            if 'payment_status' not in sale_cols:
+                conn.execute(text("ALTER TABLE sale_items ADD COLUMN payment_status VARCHAR(20) DEFAULT 'pending'"))
+            if 'due_date' not in sale_cols:
+                conn.execute(text("ALTER TABLE sale_items ADD COLUMN due_date DATE"))
+            if 'paid_kzt' not in sale_cols:
+                conn.execute(text("ALTER TABLE sale_items ADD COLUMN paid_kzt FLOAT DEFAULT 0"))
+
+
+def _seed_payment_statuses_and_due_dates() -> None:
+    """Распределяет статусы оплаты + дату продажи + срок оплаты по существующим продажам.
+
+    Применяется только если sale_date у всех продаж == today (то есть seed
+    из API ещё не разносил их по датам). После первого запуска
+    sale_date становятся разными и функция больше не трогает их.
+    """
+    sales = SaleItem.query.order_by(SaleItem.id).all()
+    today = date.today()
+    # Если хоть одна продажа уже разнесена по дате — пропускаем (idempotent seed)
+    if not sales or any(s.sale_date != today for s in sales):
+        return
+
+    # (status, sale_offset, due_offset) — оба относительно today
+    # Кредит ~30 дней, статус определяется логически
+    plan = [
+        ('paid',    -25, +5),
+        ('paid',    -22, +8),
+        ('paid',    -20, +10),
+        ('pending', -18, +12),
+        ('pending', -10, +20),
+        ('overdue', -15, -5),
+        ('overdue', -28, -18),
+    ]
+    for sale, (status, sale_offset, due_offset) in zip(sales, plan):
+        sale.payment_status = status
+        sale.sale_date = today + timedelta(days=sale_offset)
+        sale.due_date = today + timedelta(days=due_offset)
+        if status == 'paid':
+            sale.paid_kzt = sale.total_revenue_kzt
+    db.session.commit()
+
+
+SEED_BUDGET_2026 = [
+    # year, month, metric, plan_kzt
+    # Доход
+    (2026, 4, 'revenue',     14_000_000),
+    (2026, 5, 'revenue',     20_000_000),
+    # Себестоимость
+    (2026, 4, 'cost',         9_500_000),
+    (2026, 5, 'cost',        13_500_000),
+    # Валовая маржа
+    (2026, 4, 'gross_margin', 4_500_000),
+    (2026, 5, 'gross_margin', 6_500_000),
+    # Чистая прибыль
+    (2026, 4, 'net_profit',   3_200_000),
+    (2026, 5, 'net_profit',   4_500_000),
+    # Расходные категории
+    (2026, 5, 'expenses_purchase',    9_000_000),
+    (2026, 5, 'expenses_salary',      4_200_000),
+    (2026, 5, 'expenses_logistics',   2_400_000),
+    (2026, 5, 'expenses_rent',        1_000_000),
+    (2026, 5, 'expenses_marketing',     400_000),
+    (2026, 5, 'expenses_utilities',     200_000),
+    (2026, 5, 'expenses_tax',           750_000),
+    (2026, 5, 'expenses_other',         300_000),
+]
+
 
 def seed_initial_data() -> None:
     if Product.query.count() == 0:
@@ -216,3 +331,34 @@ def seed_initial_data() -> None:
     if not AppSetting.query.get('exchange_rate_usd_kzt'):
         db.session.add(AppSetting(key='exchange_rate_usd_kzt', value='450'))
     db.session.commit()
+
+    # Cash transactions seed — после accounts чтобы id были известны
+    if CashTransaction.query.count() == 0:
+        accounts = Account.query.order_by(Account.id).all()
+        today = date.today()
+        for acc_idx, ttype, cat, amount, desc, party, days_ago in SEED_CASH_TX:
+            if acc_idx >= len(accounts):
+                continue
+            db.session.add(CashTransaction(
+                account_id=accounts[acc_idx].id,
+                transaction_type=ttype,
+                category=cat,
+                amount_kzt=amount,
+                description=desc,
+                counterparty=party,
+                transaction_date=today - timedelta(days=days_ago),
+            ))
+        db.session.commit()
+
+    # SQLite ALTER миграция — для уже существующей БД с продажами
+    _migrate_sqlite_columns()
+
+    # Budget plan seed
+    if BudgetPlan.query.count() == 0:
+        for y, m, metric, plan in SEED_BUDGET_2026:
+            db.session.add(BudgetPlan(year=y, month=m, metric=metric, plan_kzt=plan))
+        db.session.commit()
+
+    # Дебиторка — раскрашиваем статусы существующих продаж
+    if SaleItem.query.count() > 0:
+        _seed_payment_statuses_and_due_dates()

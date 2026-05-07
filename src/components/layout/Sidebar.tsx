@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useAppStore } from '../../store';
+import { RouteId, useAppStore } from '../../store';
 import { useAuthStore } from '../../store/auth';
 import { ModuleId } from '../../types';
 import LanguageSwitcher from '../LanguageSwitcher';
@@ -47,8 +47,27 @@ const NAV_ITEMS: { id: ModuleId; key: string; icon: React.ReactNode }[] = [
   },
 ];
 
+const TOOL_ITEMS: { id: RouteId; label: string; icon: React.ReactNode }[] = [
+  {
+    id: 'tax-settings',
+    label: 'Налоговые ставки',
+    icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M5 8h6M7 12h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+  },
+  {
+    id: 'import-batch',
+    label: 'Импорт партии',
+    icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 5l6-3 6 3v6l-6 3-6-3V5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M2 5l6 3 6-3M8 8v6" stroke="currentColor" strokeWidth="1.2"/></svg>,
+  },
+  {
+    id: 'reports',
+    label: 'P&L отчёты',
+    icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 13V3M13 13H3M5 11l2-3 2 2 3-5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  },
+];
+
 export default function Sidebar() {
-  const { activeModule, setModule } = useAppStore();
+  const route = useAppStore(s => s.route);
+  const setRoute = useAppStore(s => s.setRoute);
   const { user, logout } = useAuthStore();
   const { t } = useTranslation();
 
@@ -63,12 +82,24 @@ export default function Sidebar() {
         {NAV_ITEMS.map((item) => (
           <div
             key={item.id}
-            className={`nav-item${activeModule === item.id ? ' active' : ''}`}
-            onClick={() => setModule(item.id)}
+            className={`nav-item${route === item.id ? ' active' : ''}`}
+            onClick={() => setRoute(item.id)}
           >
             {item.icon}
-            {t(`sidebar.nav.${item.key}`)}
+            <span>{t(`sidebar.nav.${item.key}`)}</span>
             <span className="nav-num">{String(item.id).padStart(2, '0')}</span>
+          </div>
+        ))}
+
+        <div className="nav-label" style={{ marginTop: 14 }}>Инструменты</div>
+        {TOOL_ITEMS.map((item) => (
+          <div
+            key={item.id}
+            className={`nav-item${route === item.id ? ' active' : ''}`}
+            onClick={() => setRoute(item.id)}
+          >
+            {item.icon}
+            <span>{item.label}</span>
           </div>
         ))}
       </nav>

@@ -1,71 +1,112 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useEffect, useMemo, useState } from 'react';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { api } from '../../../utils/api';
 
-const salesData = [
-  { date: '01', amount: 3420 }, { date: '05', amount: 1850 }, { date: '08', amount: 5680 },
-  { date: '12', amount: 4200 }, { date: '15', amount: 7100 }, { date: '18', amount: 3900 },
-  { date: '21', amount: 6200 }, { date: '24', amount: 8800 }, { date: '27', amount: 5100 },
-  { date: '30', amount: 9450 },
-];
+type Sale = Awaited<ReturnType<typeof api.listSales>>[number];
+type MarginRow = Awaited<ReturnType<typeof api.getMarginByProduct>>['rows'][number];
+type Receivable = Awaited<ReturnType<typeof api.listReceivables>>[number];
 
-const categories = [
-  { name: 'Масляные фильтры (легк.)', value: '₸19.5М', pct: 35, color: '#C9A227' },
-  { name: 'Грузовые фильтры', value: '₸15.6М', pct: 28, color: '#60A5FA' },
-  { name: 'Воздушные фильтры (легк.)', value: '₸11.1М', pct: 20, color: '#34D399' },
-  { name: 'Японские / корейские', value: '₸6.7М', pct: 12, color: '#a78bfa' },
-  { name: 'Прочие', value: '₸2.8М', pct: 5, color: '#6B7280' },
-];
+const fmt = (n: number) => Math.round(n).toLocaleString('ru-RU');
+const fmtMln = (n: number) => n >= 1_000_000 ? `₸${(n / 1_000_000).toFixed(1)}М` : `₸${(n / 1000).toFixed(0)}К`;
 
-const topClients = [
-  { name: 'ТОО АвтоАлмат', city: 'Алматы', deals: 5, amount: '12 400 000', share: '22.3%' },
-  { name: 'ТОО КазФильтр', city: 'Астана', deals: 4, amount: '9 800 000', share: '17.6%' },
-  { name: 'ИП Сейткали Е.Р.', city: 'Алматы', deals: 3, amount: '6 200 000', share: '11.2%' },
-  { name: 'ТОО АвтоПлюс', city: 'Шымкент', deals: 3, amount: '5 100 000', share: '9.2%' },
-  { name: 'ТОО МегаДеталь', city: 'Алматы', deals: 2, amount: '4 800 000', share: '8.6%' },
-  { name: 'Прочие клиенты', city: '—', deals: 2, amount: '17 300 000', share: '31.1%' },
-];
-
-const managers = [
-  { name: 'Нурсеит А.', dir: 'Алматы', deals: 9, revenue: '22 400 000', pct: 40.3, color: '#C9A227' },
-  { name: 'Жанар К.', dir: 'Астана', deals: 7, revenue: '18 600 000', pct: 33.5, color: '#60A5FA' },
-  { name: 'Арман Т.', dir: 'Юг (Шымкент)', deals: 3, revenue: '8 800 000', pct: 15.8, color: '#34D399' },
-  { name: 'Дистр. Астана', dir: 'Филиал', deals: 0, revenue: '5 800 000', pct: 10.4, color: '#a78bfa' },
-];
-
-const payments = [
-  { client: 'ТОО КазФильтр', type: 'Предоплата', typeClass: 'cat-prepay', invoice: 'СФ-2026-041', due: '30.04.2026', amount: '3 500 000', statusClass: 's-overdue', status: 'Просрочен' },
-  { client: 'ИП Сейткали Е.Р.', type: 'Предоплата', typeClass: 'cat-prepay', invoice: 'СФ-2026-044', due: '05.05.2026', amount: '1 200 000', statusClass: 's-pending', status: 'Ожидается' },
-  { client: 'ТОО АвтоПлюс', type: 'Рассрочка 30д', typeClass: 'cat-install', invoice: 'СФ-2026-038', due: '15.05.2026', amount: '2 100 000', statusClass: 's-pending', status: 'Ожидается' },
-  { client: 'ТОО МегаДеталь', type: 'Рассрочка 30д', typeClass: 'cat-install', invoice: 'СФ-2026-039', due: '20.05.2026', amount: '2 400 000', statusClass: 's-pending', status: 'Ожидается' },
-  { client: 'ТОО АвтоАлмат', type: 'Рассрочка 30д', typeClass: 'cat-install', invoice: 'СФ-2026-036', due: '28.05.2026', amount: '2 200 000', statusClass: 's-pending', status: 'Ожидается' },
-  { client: 'ТОО КазФильтр', type: 'Предоплата', typeClass: 'cat-prepay', invoice: 'СФ-2026-042', due: '01.05.2026', amount: '4 800 000', statusClass: 's-paid', status: 'Оплачен' },
-];
+const PRODUCT_COLORS = ['#C9A227', '#60A5FA', '#34D399', '#a78bfa', '#fbbf24', '#F87171'];
+const BAR_COLORS = ['#C9A227', '#60A5FA', '#34D399', '#a78bfa', '#fbbf24', '#F87171', '#6EE7B7'];
 
 export default function IncomeTab() {
+  const [sales, setSales] = useState<Sale[] | null>(null);
+  const [margin, setMargin] = useState<MarginRow[] | null>(null);
+  const [receivables, setReceivables] = useState<Receivable[] | null>(null);
+
+  useEffect(() => {
+    api.listSales().then(setSales).catch(() => setSales([]));
+    api.getMarginByProduct(30).then(d => setMargin(d.rows)).catch(() => setMargin([]));
+    api.listReceivables().then(setReceivables).catch(() => setReceivables([]));
+  }, []);
+
+  // Агрегации
+  const stats = useMemo(() => {
+    if (!sales) return { revenue: 0, count: 0, avgCheck: 0, pendingCount: 0, paidCount: 0 };
+    const revenue = sales.reduce((s, x) => s + x.total_revenue_kzt, 0);
+    const pendingCount = sales.filter(s => s.payment_status === 'pending' || s.payment_status === 'overdue').length;
+    const paidCount = sales.filter(s => s.payment_status === 'paid').length;
+    return {
+      revenue, count: sales.length,
+      avgCheck: sales.length > 0 ? revenue / sales.length : 0,
+      pendingCount, paidCount,
+    };
+  }, [sales]);
+
+  const totalOutstanding = useMemo(
+    () => (receivables ?? []).reduce((s, r) => s + r.outstanding_kzt, 0),
+    [receivables],
+  );
+
+  // Bar-chart продаж по дням (полная дата для сортировки + короткий label для оси)
+  const dailyData = useMemo(() => {
+    if (!sales) return [];
+    const map = new Map<string, { fullDate: string; date: string; amount: number }>();
+    for (const s of sales) {
+      const fullDate = s.sale_date ?? '';
+      if (!fullDate) continue;
+      // короткий формат "DD.MM"
+      const [, m, d] = fullDate.split('-');
+      const short = `${d}.${m}`;
+      if (!map.has(fullDate)) map.set(fullDate, { fullDate, date: short, amount: 0 });
+      map.get(fullDate)!.amount += s.total_revenue_kzt;
+    }
+    return Array.from(map.values()).sort((a, b) => a.fullDate.localeCompare(b.fullDate));
+  }, [sales]);
+
+  // Топ клиентов
+  const topClients = useMemo(() => {
+    if (!sales) return [];
+    const map = new Map<string, { name: string; deals: number; amount: number }>();
+    for (const s of sales) {
+      const name = s.customer_name ?? '— без имени —';
+      if (!map.has(name)) map.set(name, { name, deals: 0, amount: 0 });
+      const c = map.get(name)!;
+      c.deals += 1;
+      c.amount += s.total_revenue_kzt;
+    }
+    const total = stats.revenue;
+    return Array.from(map.values())
+      .sort((a, b) => b.amount - a.amount)
+      .map(c => ({ ...c, share: total > 0 ? (c.amount / total * 100) : 0 }));
+  }, [sales, stats.revenue]);
+
+  // Категории = топ-товары из margin (как proxy для категорий, пока в БД нет товарных групп)
+  const totalProductRevenue = useMemo(
+    () => (margin ?? []).reduce((s, r) => s + r.revenue_kzt, 0),
+    [margin],
+  );
+
   return (
     <>
       <div className="filter-bar">
-        <select className="filter-select"><option>Май 2026</option><option>Апрель 2026</option><option>Q1 2026</option></select>
-        <select className="filter-select"><option>Все категории</option><option>Масляные фильтры</option><option>Воздушные фильтры</option><option>Грузовые фильтры</option></select>
-        <select className="filter-select"><option>Все менеджеры</option><option>Нурсеит А.</option><option>Жанар К.</option><option>Арман Т.</option></select>
-        <select className="filter-select"><option>Все клиенты</option><option>ТОО АвтоАлмат</option><option>ТОО КазФильтр</option></select>
+        <select className="filter-select" disabled><option>За 30 дней</option></select>
+        <select className="filter-select" disabled title="Phase 2.6"><option>Все категории</option></select>
+        <select className="filter-select" disabled title="Phase 2.6"><option>Все менеджеры</option></select>
+        <select className="filter-select" disabled title="Phase 2.6"><option>Все клиенты</option></select>
       </div>
 
       <div className="kpi-row-3">
         <div className="kpi-card">
           <div className="kpi-label">Выручка за период</div>
-          <div className="kpi-value"><span className="cur">₸</span>55 600 000</div>
-          <div className="kpi-delta up">▲ 11.6% vs апр</div>
+          <div className="kpi-value"><span className="cur">₸</span>{sales ? fmt(stats.revenue) : '…'}</div>
+          <div className="kpi-delta up">за 30 дней · live</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Средний чек</div>
-          <div className="kpi-value"><span className="cur">₸</span>2 840 000</div>
-          <div className="kpi-delta up">▲ 4.2% vs апр</div>
+          <div className="kpi-value"><span className="cur">₸</span>{sales ? fmt(stats.avgCheck) : '…'}</div>
+          <div className="kpi-delta up">{sales ? `на ${stats.count} сделок` : '…'}</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Кол-во сделок</div>
-          <div className="kpi-value">19</div>
-          <div className="kpi-delta up">▲ 2 vs апр</div>
-          <div className="kpi-sub">из них 6 — рассрочка</div>
+          <div className="kpi-value">{sales ? stats.count : '…'}</div>
+          <div className="kpi-delta up">за 30 дней · live</div>
+          <div className="kpi-sub">
+            {sales ? `${stats.paidCount} оплачено · ${stats.pendingCount} в ожидании` : '…'}
+          </div>
         </div>
       </div>
 
@@ -73,32 +114,58 @@ export default function IncomeTab() {
         <div className="card">
           <div className="card-header">
             <div className="card-title">ПРОДАЖИ ПО ДАТАМ</div>
-            <span className="card-badge badge-gold">Май 2026</span>
+            <span className="card-badge badge-gold">live</span>
           </div>
           <div className="chart-wrap-lg">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={salesData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: 'var(--tm)', fontSize: 10, fontFamily: 'var(--mono)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--tm)', fontSize: 9, fontFamily: 'var(--mono)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}К`} />
-                <Tooltip formatter={(v: any) => [`₸${v}К`, 'Продажи']} contentStyle={{ background: 'var(--bg-el)', border: '1px solid var(--border-l)', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 11 }} />
-                <Bar dataKey="amount" fill="#C9A227" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {!sales ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--tm)' }}>Загрузка…</div>
+            ) : dailyData.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--tm)' }}>Нет продаж за период</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dailyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }} barCategoryGap="20%">
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fill: 'var(--tm)', fontSize: 10, fontFamily: 'var(--mono)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'var(--tm)', fontSize: 9, fontFamily: 'var(--mono)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1_000_000).toFixed(1)}М`} />
+                  <Tooltip
+                    formatter={(v) => [`₸${fmt(Number(v))}`, 'Продажи']}
+                    cursor={{ fill: 'rgba(201,162,39,0.06)' }}
+                    contentStyle={{ background: 'var(--bg-el)', border: '1px solid rgba(201,162,39,.28)', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 11 }}
+                    labelStyle={{ color: 'var(--ts)', fontWeight: 600, marginBottom: 4 }}
+                    itemStyle={{ color: '#C9A227', fontWeight: 600 }}
+                  />
+                  <Bar dataKey="amount" radius={[3, 3, 0, 0]}>
+                    {dailyData.map((_, idx) => (
+                      <Cell key={idx} fill={BAR_COLORS[idx % BAR_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
         <div className="card">
           <div className="card-header">
-            <div className="card-title">ПО КАТЕГОРИЯМ</div>
-            <span className="card-badge badge-gold">₸55.6М</span>
+            <div className="card-title">ПО ТОВАРАМ</div>
+            <span className="card-badge badge-gold">{margin ? fmtMln(totalProductRevenue) : '…'}</span>
           </div>
           <div className="hbar-list" style={{ marginTop: 8 }}>
-            {categories.map((c) => (
-              <div key={c.name} className="hbar-item">
-                <div className="hbar-meta"><span className="hbar-name">{c.name}</span><span className="hbar-val">{c.value}</span></div>
-                <div className="hbar-track"><div className="hbar-fill" style={{ width: `${c.pct}%`, background: c.color }} /></div>
-              </div>
-            ))}
+            {!margin && <div style={{ textAlign: 'center', color: 'var(--tm)', padding: 12 }}>Загрузка…</div>}
+            {margin?.map((r, i) => {
+              const pct = totalProductRevenue > 0 ? (r.revenue_kzt / totalProductRevenue * 100) : 0;
+              const color = PRODUCT_COLORS[i % PRODUCT_COLORS.length];
+              return (
+                <div key={r.product_id} className="hbar-item">
+                  <div className="hbar-meta">
+                    <span className="hbar-name">{r.product_name}</span>
+                    <span className="hbar-val">{fmtMln(r.revenue_kzt)}</span>
+                  </div>
+                  <div className="hbar-track">
+                    <div className="hbar-fill" style={{ width: `${pct}%`, background: color }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -107,18 +174,19 @@ export default function IncomeTab() {
         <div className="card">
           <div className="card-header">
             <div className="card-title">ТОП КЛИЕНТОВ</div>
-            <span className="card-badge badge-gold">По выручке</span>
+            <span className="card-badge badge-gold">{topClients.length} клиентов</span>
           </div>
           <table>
-            <thead><tr><th>Клиент</th><th>Город</th><th>Сделок</th><th style={{ textAlign: 'right' }}>Сумма, ₸</th><th style={{ textAlign: 'right' }}>Доля</th></tr></thead>
+            <thead><tr><th>Клиент</th><th>Сделок</th><th style={{ textAlign: 'right' }}>Сумма, ₸</th><th style={{ textAlign: 'right' }}>Доля</th></tr></thead>
             <tbody>
-              {topClients.map((c, i) => (
-                <tr key={i}>
+              {!sales && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--tm)', padding: 20 }}>Загрузка…</td></tr>}
+              {sales && topClients.length === 0 && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--tm)', padding: 20 }}>Нет клиентов</td></tr>}
+              {topClients.map((c) => (
+                <tr key={c.name}>
                   <td className="td-bold">{c.name}</td>
-                  <td className="td-muted td-mono">{c.city}</td>
-                  <td className="td-mono">{c.deals || '—'}</td>
-                  <td className="td-neutral td-right">{c.amount}</td>
-                  <td className="td-mono td-right" style={{ color: 'var(--gold)' }}>{c.share}</td>
+                  <td className="td-mono">{c.deals}</td>
+                  <td className="td-neutral td-right">{fmt(c.amount)}</td>
+                  <td className="td-mono td-right" style={{ color: 'var(--gold)' }}>{c.share.toFixed(1)}%</td>
                 </tr>
               ))}
             </tbody>
@@ -127,56 +195,68 @@ export default function IncomeTab() {
 
         <div className="card">
           <div className="card-header">
-            <div className="card-title">ПО МЕНЕДЖЕРАМ</div>
-            <span className="card-badge badge-gold">Май 2026</span>
-          </div>
-          <table>
-            <thead><tr><th>Менеджер</th><th>Направление</th><th>Сделок</th><th style={{ textAlign: 'right' }}>Выручка, ₸</th></tr></thead>
-            <tbody>
-              {managers.map((m, i) => (
-                <tr key={i}>
-                  <td className="td-bold">{m.name}</td>
-                  <td className="td-muted td-mono">{m.dir}</td>
-                  <td className="td-mono">{m.deals || '—'}</td>
-                  <td className="td-neutral td-right">{m.revenue}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ marginTop: 14 }}>
-            <div className="hbar-list">
-              {managers.map((m) => (
-                <div key={m.name} className="hbar-item">
-                  <div className="hbar-meta">
-                    <span className="hbar-name">{m.name}</span>
-                    <span className="hbar-val" style={{ color: m.color }}>{m.pct}%</span>
-                  </div>
-                  <div className="hbar-track"><div className="hbar-fill" style={{ width: `${m.pct}%`, background: m.color }} /></div>
-                </div>
-              ))}
+            <div className="card-title">
+              ПО МЕНЕДЖЕРАМ
+              <span style={{ fontSize: 9, color: 'var(--tm)', fontWeight: 400, marginLeft: 6 }}>· demo</span>
             </div>
+            <span className="card-badge badge-gold">Phase 2.6</span>
+          </div>
+          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--tm)', fontSize: 12 }}>
+            Атрибуция продажа → менеджер появится когда добавим<br />
+            <code style={{ background: 'var(--bg-el)', padding: '2px 6px', borderRadius: 4, fontFamily: 'var(--mono)', fontSize: 10 }}>manager_id</code> в таблицу <code style={{ background: 'var(--bg-el)', padding: '2px 6px', borderRadius: 4, fontFamily: 'var(--mono)', fontSize: 10 }}>sale_items</code>.
           </div>
         </div>
       </div>
 
       <div className="card">
         <div className="card-header">
-          <div className="card-title">ПРЕДОПЛАТЫ И РАССРОЧКИ</div>
-          <span className="card-badge badge-gold">Ожидается: ₸11 400 000</span>
+          <div className="card-title">ОЖИДАЕМЫЕ ПОСТУПЛЕНИЯ</div>
+          <span className="card-badge badge-gold">
+            ₸{Math.round(totalOutstanding).toLocaleString('ru-RU')}
+          </span>
         </div>
         <table>
-          <thead><tr><th>Клиент</th><th>Тип</th><th>Счёт-фактура</th><th>Срок оплаты</th><th style={{ textAlign: 'right' }}>Сумма, ₸</th><th>Статус</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Счёт-фактура</th>
+              <th>Клиент</th>
+              <th>Срок оплаты</th>
+              <th style={{ textAlign: 'right' }}>Дней</th>
+              <th style={{ textAlign: 'right' }}>Сумма, ₸</th>
+              <th>Статус</th>
+            </tr>
+          </thead>
           <tbody>
-            {payments.map((p, i) => (
-              <tr key={i}>
-                <td className="td-bold">{p.client}</td>
-                <td><span className={`cat ${p.typeClass}`}>{p.type}</span></td>
-                <td className="td-mono td-muted">{p.invoice}</td>
-                <td className="td-mono">{p.due}</td>
-                <td className="td-neutral td-right">{p.amount}</td>
-                <td><span className={`status ${p.statusClass}`}>{p.status}</span></td>
-              </tr>
-            ))}
+            {!receivables && (
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--tm)', padding: 20 }}>Загрузка…</td></tr>
+            )}
+            {receivables && receivables.length === 0 && (
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--tm)', padding: 20 }}>Все счета оплачены</td></tr>
+            )}
+            {receivables?.map(r => {
+              const isOverdue = r.payment_status === 'overdue';
+              const dayLabel = isOverdue
+                ? `+${r.days_overdue}`
+                : r.days_until_due > 0 ? `−${r.days_until_due}` : '0';
+              return (
+                <tr key={r.id}>
+                  <td className="td-mono">{r.invoice_number ?? '#' + r.id}</td>
+                  <td className="td-bold">{r.customer_name ?? '—'}</td>
+                  <td className="td-mono">{r.due_date ?? '—'}</td>
+                  <td className="td-mono td-right" style={{ color: isOverdue ? 'var(--red)' : 'var(--ts)' }}>
+                    {dayLabel}
+                  </td>
+                  <td className="td-neutral td-right">
+                    {Math.round(r.outstanding_kzt).toLocaleString('ru-RU')}
+                  </td>
+                  <td>
+                    <span className={`status ${isOverdue ? 's-overdue' : 's-pending'}`}>
+                      {isOverdue ? 'Просрочен' : 'Ожидается'}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
