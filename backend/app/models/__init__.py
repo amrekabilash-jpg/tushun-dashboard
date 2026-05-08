@@ -13,4 +13,9 @@ from app.models.database import (  # noqa: E402, F401
     User,
     AppSetting,
     BudgetPlan,
+    Warehouse,
+    StockMovement,
+    Customer,
+    Invoice,
+    Payment,
 )
