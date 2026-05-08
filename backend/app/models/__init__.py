@@ -18,4 +18,13 @@ from app.models.database import (  # noqa: E402, F401
     Customer,
     Invoice,
     Payment,
+    ExchangeRate,
+    Premium,
+    Commission,
+    WarrantyPlan,
+    WarrantyClaim,
+    WarrantyReturn,
+    ExpenseCategory,
+    ExpenseBudget,
+    TelegramUser,
 )

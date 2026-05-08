@@ -30,7 +30,8 @@ def create_app(env: Optional[str] = None, config_overrides: Optional[dict] = Non
     from app.routes import (
         auth, products, tax_settings, imports, finance, sales,
         cash_transactions, receivables, budget, warehouses, stock,
-        customers, invoices, payments,
+        customers, invoices, payments, finance_tools, warranty, expenses,
+        telegram,
     )
 
     app.register_blueprint(auth.bp)
@@ -47,6 +48,10 @@ def create_app(env: Optional[str] = None, config_overrides: Optional[dict] = Non
     app.register_blueprint(customers.bp)
     app.register_blueprint(invoices.bp)
     app.register_blueprint(payments.bp)
+    app.register_blueprint(finance_tools.bp)
+    app.register_blueprint(warranty.bp)
+    app.register_blueprint(expenses.bp)
+    app.register_blueprint(telegram.bp)
 
     @app.get('/api/health')
     def health():

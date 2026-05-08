@@ -238,11 +238,14 @@ class CashTransaction(db.Model):
     account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False)
     transaction_type = db.Column(db.String(50), nullable=False)   # income | expense | transfer
     category = db.Column(db.String(50), nullable=True)             # purchase | salary | rent | logistics | utilities | marketing | tax | other
+    expense_category_id = db.Column(db.Integer, db.ForeignKey('expense_categories.id'), nullable=True)  # Module 7 link
     amount_kzt = db.Column(db.Float, nullable=False)
     description = db.Column(db.String(255), nullable=True)
     counterparty = db.Column(db.String(255), nullable=True)
     transaction_date = db.Column(db.Date, default=date.today)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    expense_category = db.relationship('ExpenseCategory')
 
 
 class User(db.Model):
@@ -424,6 +427,317 @@ class StockMovement(db.Model):
         }
 
 
+class TelegramUser(db.Model):
+    """Подписчики Telegram-бота (Module 8)."""
+    __tablename__ = 'telegram_users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tg_user_id = db.Column(db.BigInteger, unique=True, nullable=False)  # Telegram ID
+    chat_id = db.Column(db.BigInteger, nullable=False)
+    username = db.Column(db.String(100), nullable=True)
+    full_name = db.Column(db.String(255), nullable=True)
+    role = db.Column(db.String(20), default='viewer')          # admin | manager | viewer
+    notifications_enabled = db.Column(db.Boolean, default=True)
+    subscriptions = db.Column(db.String(255), default='alerts')  # comma-separated: alerts,sales,expenses,daily
+    language = db.Column(db.String(5), default='ru')
+    is_active = db.Column(db.Boolean, default=True)
+    last_command = db.Column(db.String(100), nullable=True)
+    last_seen = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        subs = [s.strip() for s in (self.subscriptions or '').split(',') if s.strip()]
+        return {
+            'id': self.id,
+            'tg_user_id': self.tg_user_id,
+            'chat_id': self.chat_id,
+            'username': self.username,
+            'full_name': self.full_name,
+            'role': self.role,
+            'notifications_enabled': self.notifications_enabled,
+            'subscriptions': subs,
+            'language': self.language,
+            'is_active': self.is_active,
+            'last_command': self.last_command,
+            'last_seen': self.last_seen.isoformat() if self.last_seen else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class ExpenseCategory(db.Model):
+    """Категории расходов (Module 7) — справочник для cash_transactions типа expense."""
+    __tablename__ = 'expense_categories'
+
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(50), unique=True, nullable=False)  # для маппинга со старым cash_transactions.category
+    name = db.Column(db.String(100), nullable=False)
+    color = db.Column(db.String(20), default='#d4af37')           # для UI визуализации
+    icon = db.Column(db.String(20), nullable=True)                # эмодзи или иконка
+    description = db.Column(db.String(255), nullable=True)
+    monthly_limit_kzt = db.Column(db.Float, default=0)            # дефолтный лимит в месяц
+    alert_percent = db.Column(db.Float, default=80)               # alert при достижении X% лимита
+    is_active = db.Column(db.Boolean, default=True)
+    sort_order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'code': self.code,
+            'name': self.name,
+            'color': self.color,
+            'icon': self.icon,
+            'description': self.description,
+            'monthly_limit_kzt': self.monthly_limit_kzt,
+            'alert_percent': self.alert_percent,
+            'is_active': self.is_active,
+            'sort_order': self.sort_order,
+        }
+
+
+class ExpenseBudget(db.Model):
+    """Бюджет на категорию по месяцам (Module 7).
+
+    Отличается от существующего BudgetPlan (который для P&L total): здесь — план
+    на каждую категорию расходов в конкретном месяце.
+    """
+    __tablename__ = 'expense_budgets'
+
+    id = db.Column(db.Integer, primary_key=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('expense_categories.id'), nullable=False)
+    year = db.Column(db.Integer, nullable=False)
+    month = db.Column(db.Integer, nullable=False)        # 1..12
+    limit_amount_kzt = db.Column(db.Float, nullable=False)
+    alert_percent = db.Column(db.Float, default=80)      # переопределение alert per-month (если нужно)
+    note = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    category = db.relationship('ExpenseCategory')
+
+    __table_args__ = (
+        db.UniqueConstraint('category_id', 'year', 'month', name='uq_expense_budget_cat_year_month'),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'category_id': self.category_id,
+            'category_name': self.category.name if self.category else None,
+            'category_color': self.category.color if self.category else None,
+            'year': self.year,
+            'month': self.month,
+            'limit_amount_kzt': self.limit_amount_kzt,
+            'alert_percent': self.alert_percent,
+            'note': self.note,
+        }
+
+
+class WarrantyPlan(db.Model):
+    """Гарантийные планы на товары (Module 6)."""
+    __tablename__ = 'warranty_plans'
+
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    months = db.Column(db.Integer, nullable=False)              # срок гарантии в месяцах
+    coverage_percent = db.Column(db.Float, default=100)         # 100 = полное возмещение, <100 = частичное
+    price_kzt = db.Column(db.Float, default=0)                  # доплата за гарантию (0 = бесплатная)
+    description = db.Column(db.String(500), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    product = db.relationship('Product')
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'product_id': self.product_id,
+            'product_name': self.product.name if self.product else None,
+            'category': self.product.category if self.product else None,
+            'name': self.name,
+            'months': self.months,
+            'coverage_percent': self.coverage_percent,
+            'price_kzt': self.price_kzt,
+            'description': self.description,
+            'is_active': self.is_active,
+        }
+
+
+class WarrantyClaim(db.Model):
+    """Рекламации/гарантийные случаи (Module 6)."""
+    __tablename__ = 'warranty_claims'
+
+    id = db.Column(db.Integer, primary_key=True)
+    claim_number = db.Column(db.String(50), unique=True, nullable=False)
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=True)  # ссылка на счёт
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
+    customer_name = db.Column(db.String(255), nullable=True)  # дублируем для случаев без customer_id
+    quantity = db.Column(db.Integer, default=1)
+    claim_type = db.Column(db.String(20), default='defect')   # defect | damage | wrong_item | other
+    description = db.Column(db.String(1000), nullable=True)
+    status = db.Column(db.String(20), default='open')          # open | in_review | resolved | rejected
+    resolution = db.Column(db.String(500), nullable=True)
+    claim_date = db.Column(db.Date, default=date.today)
+    resolved_date = db.Column(db.Date, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    product = db.relationship('Product')
+    invoice = db.relationship('Invoice')
+    customer = db.relationship('Customer')
+    returns = db.relationship('WarrantyReturn', back_populates='claim', cascade='all, delete-orphan')
+
+    def to_dict(self) -> dict:
+        # Время разрешения в днях (или None если открыта)
+        resolution_days = None
+        if self.resolved_date and self.claim_date:
+            resolution_days = (self.resolved_date - self.claim_date).days
+        return {
+            'id': self.id,
+            'claim_number': self.claim_number,
+            'invoice_id': self.invoice_id,
+            'invoice_number': self.invoice.invoice_number if self.invoice else None,
+            'product_id': self.product_id,
+            'product_name': self.product.name if self.product else None,
+            'customer_id': self.customer_id,
+            'customer_name': self.customer.name if self.customer else self.customer_name,
+            'quantity': self.quantity,
+            'claim_type': self.claim_type,
+            'description': self.description,
+            'status': self.status,
+            'resolution': self.resolution,
+            'claim_date': self.claim_date.isoformat() if self.claim_date else None,
+            'resolved_date': self.resolved_date.isoformat() if self.resolved_date else None,
+            'resolution_days': resolution_days,
+            'returns_count': len(self.returns),
+        }
+
+
+class WarrantyReturn(db.Model):
+    """Возвраты по гарантийным случаям (Module 6)."""
+    __tablename__ = 'warranty_returns'
+
+    id = db.Column(db.Integer, primary_key=True)
+    claim_id = db.Column(db.Integer, db.ForeignKey('warranty_claims.id'), nullable=False)
+    quantity = db.Column(db.Integer, default=1)
+    reason = db.Column(db.String(500), nullable=True)
+    refund_amount_kzt = db.Column(db.Float, default=0)
+    refund_method = db.Column(db.String(20), default='cash')   # cash | bank | exchange | credit
+    return_date = db.Column(db.Date, default=date.today)
+    status = db.Column(db.String(20), default='pending')       # pending | approved | refunded | rejected
+    note = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    claim = db.relationship('WarrantyClaim', back_populates='returns')
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'claim_id': self.claim_id,
+            'claim_number': self.claim.claim_number if self.claim else None,
+            'product_name': self.claim.product.name if (self.claim and self.claim.product) else None,
+            'customer_name': self.claim.customer_name if self.claim else None,
+            'quantity': self.quantity,
+            'reason': self.reason,
+            'refund_amount_kzt': self.refund_amount_kzt,
+            'refund_method': self.refund_method,
+            'return_date': self.return_date.isoformat() if self.return_date else None,
+            'status': self.status,
+            'note': self.note,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class ExchangeRate(db.Model):
+    """История курсов валют (Module 5)."""
+    __tablename__ = 'exchange_rates'
+
+    id = db.Column(db.Integer, primary_key=True)
+    base_currency = db.Column(db.String(3), nullable=False)
+    target_currency = db.Column(db.String(3), nullable=False)
+    rate = db.Column(db.Float, nullable=False)
+    rate_date = db.Column(db.Date, default=date.today, nullable=False)
+    source = db.Column(db.String(50), default='manual')  # manual | nbk | xe | api
+    note = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('base_currency', 'target_currency', 'rate_date',
+                            name='uq_rate_base_target_date'),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'base_currency': self.base_currency,
+            'target_currency': self.target_currency,
+            'rate': self.rate,
+            'rate_date': self.rate_date.isoformat() if self.rate_date else None,
+            'source': self.source,
+            'note': self.note,
+        }
+
+
+class Premium(db.Model):
+    """Премии и бонусы (Module 5)."""
+    __tablename__ = 'premiums'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    premium_type = db.Column(db.String(20), default='fixed')  # fixed | percent
+    amount = db.Column(db.Float, nullable=False)              # KZT для fixed, % для percent
+    description = db.Column(db.String(500), nullable=True)
+    period = db.Column(db.String(50), nullable=True)          # monthly | quarterly | yearly | one-time
+    target_role = db.Column(db.String(50), nullable=True)     # sales | warehouse | management | all
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'name': self.name,
+            'premium_type': self.premium_type,
+            'amount': self.amount,
+            'description': self.description,
+            'period': self.period,
+            'target_role': self.target_role,
+            'is_active': self.is_active,
+        }
+
+
+class Commission(db.Model):
+    """Комиссии — % от транзакции (Module 5)."""
+    __tablename__ = 'commissions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    commission_type = db.Column(db.String(30), default='sales')  # sales | service | returns | logistics
+    percent = db.Column(db.Float, nullable=False)               # % от суммы
+    min_amount_kzt = db.Column(db.Float, default=0)             # минимум суммы для применения
+    max_amount_kzt = db.Column(db.Float, nullable=True)          # cap
+    description = db.Column(db.String(500), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'name': self.name,
+            'commission_type': self.commission_type,
+            'percent': self.percent,
+            'min_amount_kzt': self.min_amount_kzt,
+            'max_amount_kzt': self.max_amount_kzt,
+            'description': self.description,
+            'is_active': self.is_active,
+        }
+
+
 # ---------- SEED ----------
 
 SEED_PRODUCTS = [
@@ -445,6 +759,127 @@ SEED_ACCOUNTS = [
 SEED_WAREHOUSES = [
     {'code': 'ALA', 'name': 'Склад Алматы', 'city': 'Алматы', 'address': 'мкр. Айнабулак, ул. Промышленная 12'},
     {'code': 'NQZ', 'name': 'Склад Астана', 'city': 'Астана', 'address': 'пр. Кабанбай батыра 47'},
+]
+
+SEED_TELEGRAM_USERS = [
+    # (tg_user_id, chat_id, username, full_name, role, subs, language, last_command, last_seen_days_ago)
+    (123456789, 123456789, 'amrekabilash',  'Амреахавлаш Кабилаш',
+     'admin',   'alerts,sales,expenses,daily', 'ru', '/status',  0),
+    (234567890, 234567890, 'manager_kz',    'Дина Сейтжанова',
+     'manager', 'alerts,sales',                'ru', '/sales',   1),
+    (345678901, 345678901, 'analyst_team',  'Игорь Петров',
+     'viewer',  'alerts',                      'ru', '/alerts',  3),
+]
+
+SEED_EXPENSE_CATEGORIES = [
+    # (code, name, color, icon, monthly_limit, alert%, sort)
+    ('salary',     'Зарплата',      '#5fa8ff', '👥', 5_000_000, 90, 1),
+    ('rent',       'Аренда',        '#d4af37', '🏢', 1_500_000, 95, 2),
+    ('utilities',  'Коммуналка',    '#22c55e', '💡',   300_000, 80, 3),
+    ('marketing',  'Маркетинг',     '#fbbf24', '📢',   600_000, 70, 4),
+    ('logistics',  'Логистика',     '#ef4444', '🚚', 3_000_000, 85, 5),
+    ('purchase',   'Закупки товара','#a855f7', '📦', 12_000_000, 95, 6),
+    ('tax',        'Налоги',        '#06b6d4', '📊', 1_000_000, 100, 7),
+    ('other',      'Прочее',        '#9ca3af', '📁',   500_000, 80, 8),
+]
+
+SEED_WARRANTY_PLANS = [
+    # (product_idx, name, months, coverage_percent, price_kzt, description, is_active)
+    (0, 'Стандартная гарантия 12 мес.',  12, 100,    0,    'Полное возмещение при заводском браке',                       True),
+    (1, 'Расширенная гарантия 24 мес.',  24, 100,    1500, 'Защита от заводских дефектов и неправильной установки',       True),
+    (2, 'Премиум гарантия 36 мес.',      36,  80,    3500, 'Покрытие 80% стоимости, включая износ',                       True),
+    (3, 'Базовая 6 мес. (б/у запчасти)',  6,  50,    0,    'Только заводской брак, 50% возмещение',                       False),
+]
+
+# (claim_idx, customer_idx, product_idx, qty, type, status, claim_days_ago, resolved_days_ago, description, resolution)
+SEED_WARRANTY_CLAIMS = [
+    # Закрытые (resolved)
+    ('РК-2026-001', 0, 0, 2, 'defect',     'resolved', 25, 18, 'Течь масла из-под прокладки фильтра, 2 шт.',
+     'Произведена замена бракованных фильтров. Возврат денег не требуется.'),
+    ('РК-2026-002', 1, 1, 1, 'wrong_item', 'resolved', 20, 15, 'Получили фильтр другой модели вместо заказанного',
+     'Обмен на правильный товар выполнен.'),
+    ('РК-2026-003', 2, 2, 5, 'defect',     'resolved', 18, 10, 'Партия фильтров с неисправной мембраной',
+     'Полный возврат стоимости через банковский перевод.'),
+    ('РК-2026-004', 3, 0, 1, 'damage',     'resolved', 14,  7, 'Повреждение упаковки при доставке',
+     'Скидка 50% на следующую покупку взамен возврата.'),
+    # В работе
+    ('РК-2026-005', 4, 4, 3, 'defect',     'in_review', 8,  None, 'Патрубки лопаются при высокой температуре. На экспертизе.',
+     None),
+    ('РК-2026-006', 0, 5, 2, 'defect',     'in_review', 5,  None, 'Силиконовые патрубки с трещинами после 1 месяца',
+     None),
+    # Открытые
+    ('РК-2026-007', 1, 3, 1, 'wrong_item', 'open',      3,  None, 'Не тот размер фильтра салона',
+     None),
+    ('РК-2026-008', 4, 1, 2, 'defect',     'open',      1,  None, 'Воздушный фильтр забивается за неделю',
+     None),
+]
+
+# (claim_idx 0-based в массиве выше, qty, reason, refund_kzt, method, status, days_ago, note)
+SEED_WARRANTY_RETURNS = [
+    # Возвраты по resolved претензиям
+    (2, 5, 'Заводской брак партии', 75_000, 'bank',     'refunded', 10, 'Полный возврат на счёт клиента'),
+    (3, 1, 'Повреждение упаковки',  10_000, 'credit',   'refunded',  7, 'Скидка 50% на след. покупку'),
+    (0, 2, 'Заводской брак',        24_000, 'exchange', 'refunded', 18, 'Замена на новые фильтры'),
+    (1, 1, 'Неправильный товар',    18_000, 'exchange', 'refunded', 15, 'Обмен'),
+    # Возврат по in_review
+    (4, 3, 'Дефект патрубков',      75_000, 'bank',     'pending',   2, 'Ждём результаты экспертизы'),
+]
+
+SEED_EXCHANGE_RATES = [
+    # (base, target, rate, days_ago, source) — история за последние 30 дней
+    # USD → KZT
+    ('USD', 'KZT', 442.50, 30, 'nbk'),
+    ('USD', 'KZT', 444.10, 25, 'nbk'),
+    ('USD', 'KZT', 446.30, 20, 'nbk'),
+    ('USD', 'KZT', 448.70, 15, 'nbk'),
+    ('USD', 'KZT', 450.20, 10, 'nbk'),
+    ('USD', 'KZT', 452.00, 5,  'nbk'),
+    ('USD', 'KZT', 451.30, 0,  'nbk'),
+    # EUR → KZT
+    ('EUR', 'KZT', 478.80, 20, 'nbk'),
+    ('EUR', 'KZT', 482.40, 10, 'nbk'),
+    ('EUR', 'KZT', 488.50, 0,  'nbk'),
+    # CNY → KZT
+    ('CNY', 'KZT', 61.20,  20, 'nbk'),
+    ('CNY', 'KZT', 62.10,  10, 'nbk'),
+    ('CNY', 'KZT', 62.80,  0,  'nbk'),
+    # RUB → KZT
+    ('RUB', 'KZT', 4.85,   10, 'nbk'),
+    ('RUB', 'KZT', 4.92,   0,  'nbk'),
+]
+
+SEED_PREMIUMS = [
+    {'name': 'Квартальный бонус продаж',  'premium_type': 'percent', 'amount': 5.0,
+     'description': '5% от чистой прибыли отдела продаж за квартал',
+     'period': 'quarterly', 'target_role': 'sales',     'is_active': True},
+    {'name': 'Выслуга лет',                'premium_type': 'fixed',   'amount': 50_000,
+     'description': '50 000 ₸ за каждый полный год работы',
+     'period': 'yearly',    'target_role': 'all',       'is_active': True},
+    {'name': 'Спецпроект (Tushun-Asia)',  'premium_type': 'fixed',   'amount': 200_000,
+     'description': 'Разовая премия за расширение в новый регион',
+     'period': 'one-time',  'target_role': 'management','is_active': True},
+    {'name': 'Бонус за безаварийность',    'premium_type': 'fixed',   'amount': 30_000,
+     'description': 'Месячный бонус для склада за отсутствие потерь',
+     'period': 'monthly',   'target_role': 'warehouse', 'is_active': False},
+]
+
+SEED_COMMISSIONS = [
+    {'name': 'Комиссия за продажи (стандарт)', 'commission_type': 'sales',
+     'percent': 2.0, 'min_amount_kzt': 0, 'max_amount_kzt': None,
+     'description': '2% от выручки по сделке для менеджера',
+     'is_active': True},
+    {'name': 'Комиссия за услуги доставки',     'commission_type': 'logistics',
+     'percent': 5.0, 'min_amount_kzt': 50_000, 'max_amount_kzt': 500_000,
+     'description': '5% сверху на доставку, max 500K ₸',
+     'is_active': True},
+    {'name': 'Комиссия за возврат',             'commission_type': 'returns',
+     'percent': 1.5, 'min_amount_kzt': 0, 'max_amount_kzt': None,
+     'description': 'Удержание 1.5% при возврате товара',
+     'is_active': True},
+    {'name': 'Сервисный сбор (платный сервис)', 'commission_type': 'service',
+     'percent': 3.0, 'min_amount_kzt': 100_000, 'max_amount_kzt': None,
+     'description': '3% за дополнительные услуги (от 100K ₸)',
+     'is_active': True},
 ]
 
 SEED_CUSTOMERS = [
@@ -510,6 +945,13 @@ def _migrate_sqlite_columns() -> None:
                 conn.execute(text("ALTER TABLE sale_items ADD COLUMN invoice_id INTEGER"))
             if 'customer_id' not in sale_cols:
                 conn.execute(text("ALTER TABLE sale_items ADD COLUMN customer_id INTEGER"))
+
+    # Module 7: FK на expense_categories в cash_transactions
+    if 'cash_transactions' in insp.get_table_names():
+        ct_cols = {c['name'] for c in insp.get_columns('cash_transactions')}
+        with db.engine.begin() as conn:
+            if 'expense_category_id' not in ct_cols:
+                conn.execute(text("ALTER TABLE cash_transactions ADD COLUMN expense_category_id INTEGER"))
 
     # Module 4: расширение import_batches
     if 'import_batches' in insp.get_table_names():
@@ -650,6 +1092,48 @@ def seed_initial_data() -> None:
 
     if Invoice.query.count() == 0:
         _seed_invoices_and_payments()
+
+    # Module 5: exchange rates + premiums + commissions
+    if ExchangeRate.query.count() == 0:
+        today = date.today()
+        for base, target, rate, days_ago, source in SEED_EXCHANGE_RATES:
+            db.session.add(ExchangeRate(
+                base_currency=base, target_currency=target, rate=rate,
+                rate_date=today - timedelta(days=days_ago), source=source,
+            ))
+        db.session.commit()
+
+    if Premium.query.count() == 0:
+        for p in SEED_PREMIUMS:
+            db.session.add(Premium(**p))
+        db.session.commit()
+
+    if Commission.query.count() == 0:
+        for c in SEED_COMMISSIONS:
+            db.session.add(Commission(**c))
+        db.session.commit()
+
+    # Module 6: warranty plans + claims + returns
+    if WarrantyPlan.query.count() == 0:
+        _seed_warranties()
+
+    # Module 7: expense categories + budgets + auto-link cash_transactions
+    if ExpenseCategory.query.count() == 0:
+        _seed_expense_categories_and_budgets()
+
+    # Module 8: Telegram users
+    if TelegramUser.query.count() == 0:
+        today = date.today()
+        for tg_id, chat_id, username, full_name, role, subs, lang, cmd, days_ago in SEED_TELEGRAM_USERS:
+            db.session.add(TelegramUser(
+                tg_user_id=tg_id, chat_id=chat_id,
+                username=username, full_name=full_name,
+                role=role, subscriptions=subs, language=lang,
+                notifications_enabled=True, is_active=True,
+                last_command=cmd,
+                last_seen=datetime.utcnow() - timedelta(days=days_ago),
+            ))
+        db.session.commit()
 
 
 def _seed_stock_movements() -> None:
@@ -833,4 +1317,155 @@ def _seed_invoices_and_payments() -> None:
     for inv in invoices:
         total_paid = sum(p.amount_kzt for p in inv.payments)
         inv.paid_kzt = total_paid
+    db.session.commit()
+
+
+def _seed_expense_categories_and_budgets() -> None:
+    """Module 7 seed: категории расходов + 12 бюджетов + auto-link старых cash_transactions."""
+    today = date.today()
+
+    # 1. Категории
+    code_to_cat = {}
+    for code, name, color, icon, limit, alert, sort in SEED_EXPENSE_CATEGORIES:
+        cat = ExpenseCategory(
+            code=code, name=name, color=color, icon=icon,
+            monthly_limit_kzt=limit, alert_percent=alert,
+            sort_order=sort, is_active=True,
+        )
+        db.session.add(cat)
+        code_to_cat[code] = cat
+    db.session.commit()
+
+    # 2. Auto-link существующих cash_transactions по text-полю category → expense_category_id
+    txs = CashTransaction.query.filter(
+        CashTransaction.transaction_type == 'expense',
+        CashTransaction.expense_category_id.is_(None),
+    ).all()
+    for tx in txs:
+        if tx.category and tx.category in code_to_cat:
+            tx.expense_category_id = code_to_cat[tx.category].id
+    db.session.commit()
+
+    # 3. Бюджеты на 12 месяцев (текущий + 2 предыдущих + 9 будущих) для каждой активной категории
+    # Чтобы было на чём показать "план vs факт" в текущем и прошлых месяцах
+    months_to_plan = []
+    for offset in range(-2, 10):  # от -2 (2 мес назад) до +9 (9 мес вперёд)
+        ref = today.replace(day=1)
+        # сдвигаем месяцы
+        m = ref.month - 1 + offset
+        y = ref.year + m // 12
+        m = m % 12 + 1
+        months_to_plan.append((y, m))
+
+    for cat in code_to_cat.values():
+        for y, m in months_to_plan:
+            db.session.add(ExpenseBudget(
+                category_id=cat.id,
+                year=y, month=m,
+                limit_amount_kzt=cat.monthly_limit_kzt,
+                alert_percent=cat.alert_percent,
+            ))
+    db.session.commit()
+
+    # 4. Дополнительные expense-транзакции для разнообразия (если их мало)
+    # Проверим что у нас есть транзакции по разным категориям и добавим если нет
+    existing_count = CashTransaction.query.filter(
+        CashTransaction.transaction_type == 'expense'
+    ).count()
+    if existing_count < 20:
+        accounts = Account.query.order_by(Account.id).all()
+        if accounts:
+            extra = [
+                # (cat_code, days_ago, amount, description, counterparty)
+                ('marketing', 25, 280_000, 'Реклама в Instagram',          'Meta'),
+                ('marketing', 12, 150_000, 'SEO-продвижение сайта',        'WebStudio'),
+                ('marketing',  4, 220_000, 'Контекстная реклама Yandex',   'Yandex'),
+                ('utilities', 20, 95_000,  'Интернет + телефония',         'Beeline'),
+                ('utilities',  6, 120_000, 'Электричество складов',        'Алматы Энерго'),
+                ('logistics',  9, 580_000, 'Доставка партии #2',           'KazPost Logistics'),
+                ('logistics',  2, 340_000, 'Перевозка Алматы → Астана',    'СДЭК'),
+                ('purchase',   17, 4_500_000, 'Закупка фильтров (партия)',  'Tushun Co.'),
+                ('purchase',   3, 2_800_000, 'Закупка патрубков',          'Tushun Co.'),
+                ('tax',       14, 450_000, 'Социальный налог',             'Налоговая'),
+                ('tax',        1, 320_000, 'Подоходный налог сотрудников', 'Налоговая'),
+                ('salary',     5, 4_200_000, 'Зарплата за май (аванс)',     'Сотрудники'),
+                ('rent',       8, 950_000, 'Аренда офиса май',              'ИП Жанатов'),
+                ('other',     11, 75_000,  'Канцелярия, бумага, картриджи','Marwin'),
+            ]
+            for cat_code, days_ago, amount, desc, party in extra:
+                cat_id = code_to_cat[cat_code].id if cat_code in code_to_cat else None
+                db.session.add(CashTransaction(
+                    account_id=accounts[0].id,
+                    transaction_type='expense',
+                    category=cat_code,
+                    expense_category_id=cat_id,
+                    amount_kzt=amount,
+                    description=desc,
+                    counterparty=party,
+                    transaction_date=today - timedelta(days=days_ago),
+                ))
+            db.session.commit()
+
+
+def _seed_warranties() -> None:
+    """Module 6 seed: warranty plans + claims + returns."""
+    products = Product.query.order_by(Product.id).all()
+    customers = Customer.query.order_by(Customer.id).all()
+    invoices = Invoice.query.order_by(Invoice.id).all()
+    if not products or not customers:
+        return
+
+    today = date.today()
+
+    # Plans
+    for p_idx, name, months, cov, price, desc, active in SEED_WARRANTY_PLANS:
+        if p_idx >= len(products):
+            continue
+        db.session.add(WarrantyPlan(
+            product_id=products[p_idx].id,
+            name=name, months=months, coverage_percent=cov, price_kzt=price,
+            description=desc, is_active=active,
+        ))
+    db.session.commit()
+
+    # Claims
+    claim_objs = []
+    for claim_no, c_idx, p_idx, qty, ctype, status, claim_days_ago, resolved_days_ago, desc, resolution in SEED_WARRANTY_CLAIMS:
+        if c_idx >= len(customers) or p_idx >= len(products):
+            continue
+        customer = customers[c_idx]
+        # Привяжем к первому invoice этого клиента, если есть
+        inv = next((i for i in invoices if i.customer_id == customer.id), None)
+        claim = WarrantyClaim(
+            claim_number=claim_no,
+            invoice_id=inv.id if inv else None,
+            product_id=products[p_idx].id,
+            customer_id=customer.id,
+            customer_name=customer.name,
+            quantity=qty,
+            claim_type=ctype,
+            description=desc,
+            status=status,
+            resolution=resolution,
+            claim_date=today - timedelta(days=claim_days_ago),
+            resolved_date=(today - timedelta(days=resolved_days_ago)) if resolved_days_ago is not None else None,
+        )
+        db.session.add(claim)
+        claim_objs.append(claim)
+    db.session.commit()
+
+    # Returns
+    for c_idx, qty, reason, refund, method, status, days_ago, note in SEED_WARRANTY_RETURNS:
+        if c_idx >= len(claim_objs):
+            continue
+        db.session.add(WarrantyReturn(
+            claim_id=claim_objs[c_idx].id,
+            quantity=qty,
+            reason=reason,
+            refund_amount_kzt=refund,
+            refund_method=method,
+            return_date=today - timedelta(days=days_ago),
+            status=status,
+            note=note,
+        ))
     db.session.commit()
