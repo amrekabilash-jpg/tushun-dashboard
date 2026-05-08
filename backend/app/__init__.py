@@ -2,6 +2,7 @@ from typing import Optional
 
 from flask import Flask, jsonify
 from flask_cors import CORS
+from sqlalchemy import inspect
 
 from config import get_config
 from app.models import db
@@ -28,7 +29,8 @@ def create_app(env: Optional[str] = None, config_overrides: Optional[dict] = Non
 
     from app.routes import (
         auth, products, tax_settings, imports, finance, sales,
-        cash_transactions, receivables, budget,
+        cash_transactions, receivables, budget, warehouses, stock,
+        customers, invoices, payments,
     )
 
     app.register_blueprint(auth.bp)
@@ -40,6 +42,11 @@ def create_app(env: Optional[str] = None, config_overrides: Optional[dict] = Non
     app.register_blueprint(cash_transactions.bp)
     app.register_blueprint(receivables.bp)
     app.register_blueprint(budget.bp)
+    app.register_blueprint(warehouses.bp)
+    app.register_blueprint(stock.bp)
+    app.register_blueprint(customers.bp)
+    app.register_blueprint(invoices.bp)
+    app.register_blueprint(payments.bp)
 
     @app.get('/api/health')
     def health():
@@ -58,7 +65,10 @@ def create_app(env: Optional[str] = None, config_overrides: Optional[dict] = Non
         return jsonify({'error': 'not_found', 'path': str(e)}), 404
 
     with app.app_context():
-        db.create_all()
-        seed_initial_data()
+        # Проверяем существуют ли таблицы, если нет - создаём
+        inspector = inspect(db.engine)
+        if not inspector.has_table('products'):
+            db.create_all()
+            seed_initial_data()
 
     return app
