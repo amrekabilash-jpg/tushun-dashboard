@@ -4,6 +4,7 @@
 Production (Railway): DATABASE_URL и JWT_SECRET берутся из переменных окружения.
 """
 import os
+import re
 from typing import List, Optional, Type
 
 from dotenv import load_dotenv
@@ -27,18 +28,32 @@ class Config:
 
     # Список фронтенд-источников, которым разрешён CORS.
     # FRONTEND_URLS: запятая-разделённый список (например "https://tushun.vercel.app,http://localhost:1420")
+    # По умолчанию разрешены: localhost, любой *.vercel.app поддомен, tauri scheme.
     @staticmethod
-    def cors_origins() -> List[str]:
+    def cors_origins() -> List:
         env_value = os.getenv('FRONTEND_URLS', '')
-        defaults = [
+        defaults: List = [
             'http://localhost:1420',     # Vite dev (Tauri-конфиг)
             'http://127.0.0.1:1420',
             'http://localhost:5173',     # Vite default port
             'http://127.0.0.1:5173',
             'tauri://localhost',         # Tauri scheme
+            # Production Vercel: основной домен + любые preview-домены
+            'https://tushun-dashboard.vercel.app',
+            re.compile(r'^https://tushun-dashboard.*\.vercel\.app$'),
         ]
         extra = [u.strip() for u in env_value.split(',') if u.strip()]
-        return list(dict.fromkeys(defaults + extra))  # dedupe сохраняя порядок
+        # dedupe среди строк (regex объекты остаются как есть)
+        seen = set()
+        result: List = []
+        for item in list(defaults) + extra:
+            if isinstance(item, str):
+                if item not in seen:
+                    seen.add(item)
+                    result.append(item)
+            else:
+                result.append(item)
+        return result
 
 
 class DevelopmentConfig(Config):
