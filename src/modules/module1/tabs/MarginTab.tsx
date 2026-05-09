@@ -120,7 +120,7 @@ export default function MarginTab() {
             <div className="card-title">МАРЖА ПО ПРОДУКТАМ</div>
             <span className="card-badge badge-gold">live · {rows?.length ?? 0}</span>
           </div>
-          <table>
+          <div className="table-scroll"><table>
             <thead><tr><th>Товар</th><th style={{ textAlign: 'right' }}>Продаж</th><th style={{ textAlign: 'right' }}>Выручка ₸</th><th style={{ textAlign: 'right' }}>Маржа ₸</th><th style={{ textAlign: 'right' }}>%</th></tr></thead>
             <tbody>
               {!rows && (<tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--tm)', padding: 20 }}>Загрузка…</td></tr>)}
@@ -137,7 +137,7 @@ export default function MarginTab() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         <div className="card">

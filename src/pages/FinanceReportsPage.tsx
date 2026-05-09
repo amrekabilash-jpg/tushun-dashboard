@@ -174,7 +174,7 @@ export default function FinanceReportsPage({ onBack }: Props) {
             <span className="tax-mono tax-muted">{margin?.length ?? 0} позиций</span>
           </div>
           <div className="tax-table-wrap">
-            <table className="tax-table">
+            <div className="table-scroll"><table className="tax-table">
               <thead>
                 <tr>
                   <th>Товар</th>
@@ -207,7 +207,7 @@ export default function FinanceReportsPage({ onBack }: Props) {
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
 
@@ -256,7 +256,7 @@ export default function FinanceReportsPage({ onBack }: Props) {
           <span className="tax-card-title">Последние продажи — {sales?.length ?? 0}</span>
         </div>
         <div className="tax-table-wrap">
-          <table className="tax-table">
+          <div className="table-scroll"><table className="tax-table">
             <thead>
               <tr>
                 <th>Счёт</th>
@@ -291,7 +291,7 @@ export default function FinanceReportsPage({ onBack }: Props) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     </div>

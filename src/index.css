@@ -47,8 +47,52 @@ body::before {
 
 .app { display: flex; height: 100vh; position: relative; z-index: 1; }
 
+/* === SIDEBAR TOGGLE (burger) === */
+.sidebar-toggle {
+  position: fixed; top: 14px; left: 14px; z-index: 50;
+  width: 40px; height: 40px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--gold);
+  display: none;  /* по умолчанию скрыт; показывается через media query */
+  align-items: center; justify-content: center;
+  cursor: pointer; transition: all .15s;
+}
+.sidebar-toggle:hover { background: var(--bg-hover); border-color: var(--gold); }
+.sidebar-toggle:active { transform: scale(0.95); }
+
+/* Backdrop — затемнение при открытом sidebar на мобильных */
+.sidebar-backdrop {
+  display: none;
+  position: fixed; inset: 0; z-index: 30;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.app.sidebar-open .sidebar-backdrop {
+  display: block;
+}
+
 /* SIDEBAR */
-.sidebar { width: 224px; flex-shrink: 0; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.sidebar {
+  width: 224px;
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s ease, width 0.25s ease;
+}
+
+/* На десктопе: при closed скрываем (translate в сторону + ширина 0) */
+.app.sidebar-closed .sidebar {
+  transform: translateX(-100%);
+  width: 0;
+  border-right: none;
+}
 .logo { padding: 22px 20px 18px; border-bottom: 1px solid var(--border); }
 .logo-mark { font-family: var(--disp); font-size: 22px; font-weight: 700; letter-spacing: .1em; color: var(--gold); text-transform: uppercase; }
 .logo-sub { font-family: var(--mono); font-size: 9px; letter-spacing: .18em; color: var(--tm); text-transform: uppercase; margin-top: 3px; }
@@ -438,3 +482,175 @@ tbody td { padding: 9px 10px 9px 0; font-size: 12px; vertical-align: middle; }
   margin-top: 16px; display: flex; justify-content: center;
 }
 .login-lang .lang-switcher { justify-content: center; }
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤ 1023px)
+   ══════════════════════════════════════════════════════════ */
+
+/* Horizontal scroll wrapper for tables */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll table { min-width: 560px; }
+
+/* Mobile row-cards: скрываем таблицу, показываем карточки */
+.mobile-cards { display: none; }
+
+@media (max-width: 1023px) {
+  /* --- Burger button --- */
+  .sidebar-toggle { display: flex; }
+
+  /* --- Sidebar → overlay --- */
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0;
+    height: 100%; width: 224px !important;
+    z-index: 40;
+    border-right: 1px solid var(--border) !important;
+  }
+  /* Closed: slide out */
+  .app.sidebar-closed .sidebar {
+    transform: translateX(-100%) !important;
+    width: 224px !important;
+    border-right: 1px solid var(--border) !important;
+  }
+  /* Open: slide in + backdrop */
+  .app.sidebar-open .sidebar { transform: translateX(0) !important; }
+  .app.sidebar-open .sidebar-backdrop { display: block; }
+  /* Backdrop always hidden when closed */
+  .app.sidebar-closed .sidebar-backdrop { display: none !important; }
+
+  /* --- Main area --- */
+  .main {
+    padding: 62px 14px 16px; /* top room for burger */
+    gap: 12px;
+  }
+
+  /* --- Page header --- */
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-title { font-size: 22px; }
+  .header-actions { flex-wrap: wrap; gap: 8px; }
+
+  /* --- Sub-tabs scroll --- */
+  .sub-tabs {
+    overflow-x: auto;
+    width: 100%;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* --- KPI grids → 2 columns --- */
+  .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .kpi-row-3 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .kpi-value { font-size: 20px; }
+
+  /* --- All multi-col grids → 1 column --- */
+  .charts-row { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+  .grid-3 { grid-template-columns: 1fr; }
+  .grid-65-35 { grid-template-columns: 1fr; }
+  .grid-60-40 { grid-template-columns: 1fr; }
+  .wh-grid { grid-template-columns: 1fr; }
+  .bank-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .exp-cat-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+  /* --- Charts height --- */
+  .chart-wrap { height: 180px; }
+  .chart-wrap-lg { height: 200px; }
+
+  /* --- Tables → horizontal scroll --- */
+  .table-scroll table { min-width: 520px; }
+
+  /* --- Mobile cards: показываем карточки, прячем таблицу --- */
+  .mobile-cards { display: flex; flex-direction: column; gap: 8px; }
+  .mobile-cards + .table-scroll { display: none; }
+  .hide-mobile { display: none !important; }
+  .desktop-only { display: none !important; }
+
+  /* --- Mobile card styles --- */
+  .m-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .m-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .m-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tp);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .m-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .m-card-label {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--tm);
+    white-space: nowrap;
+  }
+  .m-card-val {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tp);
+    text-align: right;
+  }
+  .m-card-val.pos { color: var(--green); }
+  .m-card-val.neg { color: var(--red); }
+  .m-card-val.warn { color: var(--yellow); }
+  .m-card-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 2px 0;
+  }
+
+  /* --- Forecast row → стек --- */
+  .forecast-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(30,37,53,.7);
+  }
+  .forecast-hdr { display: none; }
+
+  /* --- cf balance smaller --- */
+  .cf-balance-val { font-size: 28px; }
+
+  /* --- Login box --- */
+  .login-box { padding: 28px 20px 24px; }
+}
+
+/* Tablet tweaks 768-1023 */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .kpi-row { grid-template-columns: repeat(4, 1fr); }
+  .kpi-row-3 { grid-template-columns: repeat(3, 1fr); }
+  .bank-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* Small phone ≤ 480px */
+@media (max-width: 480px) {
+  .main { padding: 58px 12px 14px; }
+  .kpi-row { grid-template-columns: 1fr 1fr; }
+  .kpi-value { font-size: 18px; }
+  .page-title { font-size: 19px; }
+  .card { padding: 14px 14px; }
+  .sub-tab { padding: 5px 11px; font-size: 10px; }
+}

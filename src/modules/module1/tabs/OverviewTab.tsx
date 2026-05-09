@@ -243,7 +243,7 @@ export default function OverviewTab() {
             <div className="card-title">{t('overview.table_ops_title')}</div>
             <button className="btn btn-outline btn-sm">{t('overview.btn_all')}</button>
           </div>
-          <table>
+          <div className="table-scroll"><table>
             <thead>
               <tr>
                 <th>{t('overview.col_date')}</th>
@@ -268,7 +268,7 @@ export default function OverviewTab() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         <div className="card">

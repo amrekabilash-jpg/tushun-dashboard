@@ -176,7 +176,7 @@ export default function IncomeTab() {
             <div className="card-title">ТОП КЛИЕНТОВ</div>
             <span className="card-badge badge-gold">{topClients.length} клиентов</span>
           </div>
-          <table>
+          <div className="table-scroll"><table>
             <thead><tr><th>Клиент</th><th>Сделок</th><th style={{ textAlign: 'right' }}>Сумма, ₸</th><th style={{ textAlign: 'right' }}>Доля</th></tr></thead>
             <tbody>
               {!sales && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--tm)', padding: 20 }}>Загрузка…</td></tr>}
@@ -190,7 +190,7 @@ export default function IncomeTab() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         <div className="card">
@@ -215,7 +215,7 @@ export default function IncomeTab() {
             ₸{Math.round(totalOutstanding).toLocaleString('ru-RU')}
           </span>
         </div>
-        <table>
+        <div className="table-scroll"><table>
           <thead>
             <tr>
               <th>Счёт-фактура</th>
@@ -258,7 +258,7 @@ export default function IncomeTab() {
               );
             })}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </>
   );

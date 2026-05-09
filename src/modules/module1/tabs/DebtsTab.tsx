@@ -141,7 +141,7 @@ export default function DebtsTab() {
           </div>
           <button className="btn btn-outline btn-sm" onClick={reload}>↻ Обновить</button>
         </div>
-        <table>
+        <div className="table-scroll"><table>
           <thead>
             <tr>
               <th>Счёт-фактура</th>
@@ -196,7 +196,7 @@ export default function DebtsTab() {
               );
             })}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </>
   );

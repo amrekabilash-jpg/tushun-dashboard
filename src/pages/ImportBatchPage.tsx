@@ -321,7 +321,7 @@ export default function ImportBatchPage({ onBack }: Props) {
           <button className="tax-btn tax-btn--ghost" onClick={loadAll}>↻ Обновить</button>
         </div>
         <div className="tax-table-wrap">
-          <table className="tax-table">
+          <div className="table-scroll"><table className="tax-table">
             <thead>
               <tr>
                 <th>№ партии</th>
@@ -351,7 +351,7 @@ export default function ImportBatchPage({ onBack }: Props) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     </div>

@@ -149,7 +149,7 @@ export default function PlanTab() {
           <div className="card-title">ПЛАН vs ФАКТ — ДЕТАЛИЗАЦИЯ</div>
           <span className="card-badge badge-gold">{MONTHS_RU[month - 1]} {year}</span>
         </div>
-        <table>
+        <div className="table-scroll"><table>
           <thead>
             <tr>
               <th>Показатель</th>
@@ -189,7 +189,7 @@ export default function PlanTab() {
               );
             })}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </>
   );

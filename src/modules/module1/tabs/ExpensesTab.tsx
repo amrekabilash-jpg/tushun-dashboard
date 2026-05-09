@@ -134,7 +134,7 @@ export default function ExpensesTab() {
             <button className="btn btn-outline btn-sm" disabled title="Phase 2.5">+ Добавить расход</button>
           </div>
         </div>
-        <table>
+        <div className="table-scroll"><table>
           <thead><tr><th>Дата</th><th>Категория</th><th>Описание</th><th>Контрагент</th><th>Счёт</th><th style={{ textAlign: 'right' }}>Сумма, ₸</th></tr></thead>
           <tbody>
             {!txs && (<tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--tm)', padding: 20 }}>Загрузка…</td></tr>)}
@@ -155,7 +155,7 @@ export default function ExpensesTab() {
               );
             })}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </>
   );

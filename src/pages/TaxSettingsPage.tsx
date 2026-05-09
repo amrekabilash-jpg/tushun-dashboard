@@ -143,7 +143,7 @@ export default function TaxSettingsPage({ onOpenImport, onOpenReports }: Props) 
         </div>
 
         <div className="tax-table-wrap">
-          <table className="tax-table">
+          <div className="table-scroll"><table className="tax-table">
             <thead>
               <tr>
                 <th>Товар</th>
@@ -211,7 +211,7 @@ export default function TaxSettingsPage({ onOpenImport, onOpenReports }: Props) 
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
 
@@ -226,7 +226,7 @@ export default function TaxSettingsPage({ onOpenImport, onOpenReports }: Props) 
               <button className="tax-btn tax-btn--ghost" onClick={closeHistory}>Закрыть</button>
             </header>
             <div className="tax-table-wrap">
-              <table className="tax-table">
+              <div className="table-scroll"><table className="tax-table">
                 <thead>
                   <tr>
                     <th>Дата</th>
@@ -251,7 +251,7 @@ export default function TaxSettingsPage({ onOpenImport, onOpenReports }: Props) 
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           </div>
         </div>
