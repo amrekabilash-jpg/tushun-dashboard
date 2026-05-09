@@ -47,20 +47,20 @@ const NAV_ITEMS: { id: ModuleId; key: string; icon: React.ReactNode }[] = [
   },
 ];
 
-const TOOL_ITEMS: { id: RouteId; label: string; icon: React.ReactNode }[] = [
+const TOOL_ITEMS: { id: RouteId; key: string; icon: React.ReactNode }[] = [
   {
     id: 'tax-settings',
-    label: 'Налоговые ставки',
+    key: 'tax_settings',
     icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M5 8h6M7 12h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
   },
   {
     id: 'import-batch',
-    label: 'Импорт партии',
+    key: 'import_batch',
     icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 5l6-3 6 3v6l-6 3-6-3V5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M2 5l6 3 6-3M8 8v6" stroke="currentColor" strokeWidth="1.2"/></svg>,
   },
   {
     id: 'reports',
-    label: 'P&L отчёты',
+    key: 'reports',
     icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 13V3M13 13H3M5 11l2-3 2 2 3-5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   },
 ];
@@ -91,7 +91,7 @@ export default function Sidebar() {
           </div>
         ))}
 
-        <div className="nav-label" style={{ marginTop: 14 }}>Инструменты</div>
+        <div className="nav-label" style={{ marginTop: 14 }}>{t('sidebar.tools_label')}</div>
         {TOOL_ITEMS.map((item) => (
           <div
             key={item.id}
@@ -99,7 +99,7 @@ export default function Sidebar() {
             onClick={() => setRoute(item.id)}
           >
             {item.icon}
-            <span>{item.label}</span>
+            <span>{t(`sidebar.tools.${item.key}`)}</span>
           </div>
         ))}
       </nav>

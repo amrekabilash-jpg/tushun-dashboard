@@ -23,6 +23,12 @@
       "claims": "Şikayetler",
       "analytics": "Analitik",
       "telegram": "Telegram Bot"
+    },
+    "tools_label": "Araçlar",
+    "tools": {
+      "tax_settings": "Vergi Oranları",
+      "import_batch": "Parti İthalatı",
+      "reports": "K&Z Raporları"
     }
   },
   "module1": {

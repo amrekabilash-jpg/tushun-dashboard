@@ -23,6 +23,12 @@
       "claims": "投诉处理",
       "analytics": "数据分析",
       "telegram": "Telegram Bot"
+    },
+    "tools_label": "工具",
+    "tools": {
+      "tax_settings": "税率设置",
+      "import_batch": "进口批次",
+      "reports": "损益报告"
     }
   },
   "module1": {

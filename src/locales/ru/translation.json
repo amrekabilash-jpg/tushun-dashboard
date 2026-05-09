@@ -23,6 +23,12 @@
       "claims": "Рекламации",
       "analytics": "Аналитика",
       "telegram": "Telegram Bot"
+    },
+    "tools_label": "Инструменты",
+    "tools": {
+      "tax_settings": "Налоговые ставки",
+      "import_batch": "Импорт партии",
+      "reports": "P&L отчёты"
     }
   },
   "module1": {
