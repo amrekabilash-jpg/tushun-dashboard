@@ -638,6 +638,26 @@ tbody td { padding: 9px 10px 9px 0; font-size: 12px; vertical-align: middle; }
   .login-box { padding: 28px 20px 24px; }
 }
 
+/* ══════════════════════════════════════════════════════════
+   DESKTOP (≥ 1024px) — sidebar always visible, no burger
+   ══════════════════════════════════════════════════════════ */
+@media (min-width: 1024px) {
+  /* Sidebar always shown on desktop regardless of sidebarOpen state */
+  .sidebar {
+    position: relative !important;
+    transform: none !important;
+    width: 224px !important;
+    border-right: 1px solid var(--border) !important;
+    flex-shrink: 0 !important;
+  }
+  /* No burger button on desktop */
+  .sidebar-toggle { display: none !important; }
+  /* No backdrop on desktop */
+  .sidebar-backdrop { display: none !important; }
+  /* Main area: original desktop padding */
+  .main { padding: 22px 24px !important; gap: 16px !important; }
+}
+
 /* Tablet tweaks 768-1023 */
 @media (min-width: 768px) and (max-width: 1023px) {
   .kpi-row { grid-template-columns: repeat(4, 1fr); }
