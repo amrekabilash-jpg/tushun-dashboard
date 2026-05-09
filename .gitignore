@@ -46,3 +46,10 @@ secrets*.md
 # но шаблоны и production-URL не секрет → коммитятся
 !.env.example
 !.env.production
+.vercel
+
+# Private partner distribution (confidential — never commit)
+TUSHUN_Dashboard_User_Guide.pdf
+*.pdf
+partners_distribution.txt
+distribution_log.txt
