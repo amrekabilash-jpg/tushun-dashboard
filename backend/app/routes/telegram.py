@@ -8,6 +8,9 @@ Webhook /api/telegram/webhook принимает payload от Telegram, парс
 и сохраняет TelegramUser. Готовый ответ возвращается в JSON (для Telegram —
 ответ нужно отправлять отдельным запросом, реализовано в _send_message).
 """
+import base64
+import io
+import json
 from datetime import date, datetime, timedelta
 from typing import List, Optional
 import os
@@ -16,7 +19,7 @@ from flask import Blueprint, jsonify, request, current_app
 from sqlalchemy import func
 
 from app.models import (
-    CashTransaction, ExpenseCategory, Product, SaleItem,
+    Account, CashTransaction, ExchangeRate, ExpenseCategory, Product, SaleItem,
     TelegramUser, WarrantyClaim, db,
 )
 
@@ -308,6 +311,20 @@ def webhook():
         db.session.add(user)
         db.session.commit()
 
+    # === Фото / документ → OCR через Claude Vision (Module 8 Phase 1) ===
+    photo = msg.get('photo')
+    document = msg.get('document')
+    if photo or document:
+        user.last_seen = datetime.utcnow()
+        db.session.commit()
+        result = _handle_document_upload(user, photo, document)
+        return jsonify({
+            'ok': True,
+            'user_id': user.id,
+            'mode': 'ocr',
+            'result': result,
+        })
+
     response_text = ''
     if text.startswith('/'):
         response_text = _process_command(user, text)
@@ -491,3 +508,292 @@ def notify_large_sale(invoice_number: str, customer: str, amount_kzt: float) -> 
     for u in targets:
         _send_message(u.chat_id, text)
     return len(targets)
+
+
+# ==============================================================================
+# MODULE 8 — PHASE 1: OCR-распознавание документов через Claude Vision
+# ==============================================================================
+# Поддерживается только expense (см. Phase 2 для invoice/import/stock/warranty
+# с confirm-flow через inline buttons).
+# ==============================================================================
+
+def _download_telegram_file(file_id: str) -> bytes:
+    """Скачать файл с Telegram Bot API (через urllib, без requests)."""
+    import urllib.request
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if not token:
+        raise RuntimeError('TELEGRAM_BOT_TOKEN не задан в env')
+
+    info_url = f'https://api.telegram.org/bot{token}/getFile?file_id={file_id}'
+    with urllib.request.urlopen(info_url, timeout=10) as resp:
+        info = json.loads(resp.read().decode())
+    if not info.get('ok'):
+        raise RuntimeError(f'Telegram getFile failed: {info}')
+
+    file_path = info['result']['file_path']
+    download_url = f'https://api.telegram.org/file/bot{token}/{file_path}'
+    with urllib.request.urlopen(download_url, timeout=15) as resp:
+        return resp.read()
+
+
+def _resize_image(image_bytes: bytes, max_dim: int = 1024) -> tuple:
+    """Resize до max_dim, возвращает (jpeg_bytes, media_type).
+
+    Если файл — не изображение (PDF документ), возвращает оригинал
+    с предположительным media_type. Claude Vision поддерживает PDF только
+    через Files API (не base64), поэтому PDF мы пока не поддерживаем —
+    падаем с понятным сообщением.
+    """
+    from PIL import Image
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+    except Exception as e:
+        raise RuntimeError(f'Файл не распознан как изображение: {e}')
+
+    # Конвертируем в RGB (для JPEG, если PNG с alpha)
+    if img.mode in ('RGBA', 'LA', 'P'):
+        img = img.convert('RGB')
+
+    img.thumbnail((max_dim, max_dim))
+
+    out = io.BytesIO()
+    img.save(out, format='JPEG', quality=85, optimize=True)
+    return out.getvalue(), 'image/jpeg'
+
+
+_OCR_PROMPT = """Analyze this business document. Languages: Russian, Kazakh, English, Chinese, Turkish.
+
+Document types:
+- "expense" — расходный документ (мы платим: аренда, зарплата, коммуналка, маркетинг, товары для офиса)
+- "invoice" — счёт-фактура нашему клиенту (мы продаём)
+- "import_invoice" — счёт от поставщика на закупку товара
+- "stock_in" — накладная приходования товара на склад
+- "warranty" — гарантийный документ или рекламация
+- "unknown" — не бизнес-документ или невозможно распознать
+
+Return ONLY valid JSON, no markdown, no extra text:
+
+{
+  "type": "expense|invoice|import_invoice|stock_in|warranty|unknown",
+  "amount_value": 950000,
+  "amount_currency": "KZT|USD|EUR|CNY|RUB",
+  "date": "YYYY-MM-DD",
+  "supplier_name": "ИП Жанатов или Beeline или ...",
+  "category": "rent|salary|utilities|marketing|logistics|purchase|tax|other",
+  "description": "что куплено / за что плачено",
+  "confidence": 0.95
+}
+
+If unclear, return {"type": "unknown", "confidence": 0}.
+"""
+
+
+def _ocr_via_claude(image_bytes: bytes, media_type: str) -> dict:
+    """OCR + классификация документа через Claude Vision."""
+    from anthropic import Anthropic
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not api_key:
+        raise RuntimeError('ANTHROPIC_API_KEY не задан в env')
+
+    client = Anthropic(api_key=api_key)
+    image_b64 = base64.b64encode(image_bytes).decode('ascii')
+
+    response = client.messages.create(
+        model='claude-3-5-sonnet-20241022',
+        max_tokens=512,
+        messages=[{
+            'role': 'user',
+            'content': [
+                {
+                    'type': 'image',
+                    'source': {
+                        'type': 'base64',
+                        'media_type': media_type,
+                        'data': image_b64,
+                    },
+                },
+                {'type': 'text', 'text': _OCR_PROMPT},
+            ],
+        }],
+    )
+
+    raw = response.content[0].text.strip()
+    # На всякий случай отбрасываем markdown fence
+    if raw.startswith('```'):
+        raw = raw.split('\n', 1)[1] if '\n' in raw else raw
+        if raw.endswith('```'):
+            raw = raw.rsplit('```', 1)[0]
+        raw = raw.strip()
+    if raw.startswith('json'):
+        raw = raw[4:].strip()
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        current_app.logger.warning('Claude returned non-JSON: %s', raw[:200])
+        return {'type': 'unknown', 'confidence': 0}
+
+
+def _convert_to_kzt(amount: float, currency: str) -> float:
+    """Конвертация в KZT через Module 5 ExchangeRate (последний курс пары X→KZT).
+
+    Если курса нет — fallback к 450 USD/KZT.
+    """
+    if not amount:
+        return 0.0
+    cur = (currency or 'KZT').upper()
+    if cur == 'KZT':
+        return float(amount)
+
+    rate = (ExchangeRate.query
+            .filter_by(base_currency=cur, target_currency='KZT')
+            .order_by(ExchangeRate.rate_date.desc(), ExchangeRate.id.desc())
+            .first())
+    if rate and rate.rate:
+        return float(amount) * float(rate.rate)
+
+    # Fallback (Module 5 ещё не наполнен)
+    fallback = {'USD': 450, 'EUR': 488, 'CNY': 62, 'RUB': 5}
+    return float(amount) * fallback.get(cur, 1)
+
+
+def _route_expense(extracted: dict, user: TelegramUser) -> dict:
+    """Создать CashTransaction(type=expense) на основе распознанного документа.
+
+    Не использует HTTP — пишет напрямую через SQLAlchemy.
+    Возвращает {ok, message, expense_id}.
+    """
+    chat_id = user.chat_id
+    amount_value = extracted.get('amount_value') or 0
+    if amount_value <= 0:
+        msg = '❌ Не удалось определить сумму расхода'
+        _send_message(chat_id, msg)
+        return {'ok': False, 'reason': 'no_amount'}
+
+    # 1. Account — берём первый активный (можно расширить логикой выбора по валюте)
+    account = Account.query.order_by(Account.id).first()
+    if not account:
+        msg = '❌ В системе нет банковских счетов. Создай счёт через UI.'
+        _send_message(chat_id, msg)
+        return {'ok': False, 'reason': 'no_accounts'}
+
+    # 2. Категория — поиск по code (rent, salary, marketing, ...)
+    cat_code = (extracted.get('category') or 'other').lower()
+    cat = ExpenseCategory.query.filter_by(code=cat_code).first()
+    if not cat:
+        cat = ExpenseCategory.query.filter_by(code='other').first()
+    if not cat:
+        cat = ExpenseCategory.query.first()
+
+    # 3. Конвертация в KZT через Module 5
+    amount_kzt = _convert_to_kzt(amount_value, extracted.get('amount_currency', 'KZT'))
+
+    # 4. Дата
+    raw_date = extracted.get('date')
+    try:
+        tx_date = date.fromisoformat(raw_date) if raw_date else date.today()
+    except (ValueError, TypeError):
+        tx_date = date.today()
+
+    # 5. INSERT через SQLAlchemy
+    tx = CashTransaction(
+        account_id=account.id,
+        transaction_type='expense',
+        expense_category_id=cat.id if cat else None,
+        category=cat.code if cat else cat_code,
+        amount_kzt=round(amount_kzt, 2),
+        description=extracted.get('description') or 'Импортировано из Telegram',
+        counterparty=extracted.get('supplier_name'),
+        transaction_date=tx_date,
+    )
+    db.session.add(tx)
+    db.session.commit()
+
+    confidence = extracted.get('confidence', 0)
+    cat_name = cat.name if cat else cat_code
+    icon = cat.icon if cat else '📁'
+    msg = (
+        f"✅ *Расход создан* (#{tx.id})\n\n"
+        f"{icon} *Категория:* {cat_name}\n"
+        f"💸 *Сумма:* ₸{amount_kzt:,.0f}"
+    )
+    if extracted.get('amount_currency') and extracted['amount_currency'].upper() != 'KZT':
+        msg += f"  _({amount_value} {extracted['amount_currency']})_"
+    msg += (
+        f"\n📅 *Дата:* {tx_date}\n"
+        f"🏢 *Контрагент:* {extracted.get('supplier_name') or '—'}\n"
+        f"📝 *Описание:* {extracted.get('description') or '—'}\n\n"
+        f"_Распознано Claude с уверенностью {int(confidence * 100)}%_\n"
+        f"_Проверь в Module 07 → Расходы — при необходимости отредактируй._"
+    )
+    _send_message(chat_id, msg)
+    return {'ok': True, 'expense_id': tx.id, 'amount_kzt': amount_kzt}
+
+
+def _handle_document_upload(user: TelegramUser, photo, document) -> dict:
+    """Главный обработчик фото/документа из Telegram → OCR → routing."""
+    chat_id = user.chat_id
+
+    # 1. Скачать
+    try:
+        if photo:
+            # photo это массив разных размеров — берём наибольший (последний)
+            file_id = photo[-1]['file_id']
+        else:
+            file_id = document['file_id']
+        raw_bytes = _download_telegram_file(file_id)
+    except Exception as e:
+        _send_message(chat_id, f'❌ Не удалось скачать файл: {e}')
+        return {'ok': False, 'stage': 'download', 'error': str(e)}
+
+    # 2. Resize в JPEG ≤1024px
+    try:
+        image_bytes, media_type = _resize_image(raw_bytes)
+    except Exception as e:
+        _send_message(
+            chat_id,
+            f'❌ Не удалось обработать файл: {e}\n'
+            'Поддерживаются изображения (JPEG/PNG/WEBP). PDF пока не поддерживаются.'
+        )
+        return {'ok': False, 'stage': 'resize', 'error': str(e)}
+
+    # 3. OCR
+    try:
+        extracted = _ocr_via_claude(image_bytes, media_type)
+    except Exception as e:
+        _send_message(chat_id, f'❌ OCR ошибка: {e}')
+        return {'ok': False, 'stage': 'ocr', 'error': str(e)}
+
+    doc_type = extracted.get('type', 'unknown')
+
+    # 4. Routing
+    if doc_type == 'expense':
+        result = _route_expense(extracted, user)
+        return {'ok': result.get('ok', False), 'type': doc_type, 'extracted': extracted}
+
+    if doc_type == 'unknown':
+        _send_message(
+            chat_id,
+            '❌ *Не распознал тип документа.*\n\n'
+            'Поддерживается: расходные документы (аренда, зарплата, коммуналка, маркетинг и т.д.)\n\n'
+            '_Тип документа: unknown. Попробуйте более чёткое фото._'
+        )
+        return {'ok': False, 'type': 'unknown', 'extracted': extracted}
+
+    # invoice / import_invoice / stock_in / warranty — Phase 2
+    type_labels = {
+        'invoice': 'счёт-фактуру клиенту (Module 03)',
+        'import_invoice': 'инвойс на импорт (Module 04)',
+        'stock_in': 'накладную приходования (Module 02)',
+        'warranty': 'гарантийный документ (Module 06)',
+    }
+    label = type_labels.get(doc_type, doc_type)
+    _send_message(
+        chat_id,
+        f'🔍 Распознал {label}.\n\n'
+        f'⚠️ *Phase 2 в разработке* — для этого типа документа требуется выбор '
+        f'клиента/товара через интерактивные кнопки.\n\n'
+        f'_Сейчас автоматически создаются только expense. Для остальных — '
+        f'добавь запись через UI на https://tushun-dashboard.vercel.app_'
+    )
+    return {'ok': False, 'type': doc_type, 'reason': 'phase_2_not_implemented'}
