@@ -98,14 +98,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* HINT */}
-        <div className="login-hint">
-          <span>{t('login.hint_admin')}</span>
-          <span className="login-hint-cred" onClick={() => { setEmail('admin@tushun.kz'); setPassword('admin123'); }}>
-            admin@tushun.kz / admin123
-          </span>
-        </div>
-
         {/* LANG */}
         <div className="login-lang">
           <LanguageSwitcher />
