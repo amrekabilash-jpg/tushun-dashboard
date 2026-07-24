@@ -20,10 +20,69 @@
   --blue: #60A5FA;
   --purple: #a78bfa;
   --yellow: #fbbf24;
+  --border-soft: rgba(30, 37, 53, 0.75);
+  --dots: rgba(201, 162, 39, 0.035);
+  --shadow-card: none;
+  --shadow-login: 0 24px 80px rgba(0, 0, 0, .5), 0 0 0 1px rgba(201, 162, 39, .06);
+  --on-gold: #000;
   --mono: 'JetBrains Mono', monospace;
   --disp: 'Oswald', sans-serif;
   --body: 'Manrope', sans-serif;
 }
+
+/* ══════════════════════════════════════════════════════════
+   СВЕТЛАЯ ТЕМА
+   Переключается атрибутом data-theme на <html>.
+   Тема применяется скриптом в index.html ещё до отрисовки.
+   ══════════════════════════════════════════════════════════ */
+:root[data-theme="light"] {
+  --bg: #F2F4F7;
+  --bg-card: #FFFFFF;
+  --bg-el: #F3F5F9;
+  --bg-hover: #E9EDF3;
+  --border: #DFE4EC;
+  --border-l: #C6CEDB;
+  --gold: #9A7A12;
+  --gold-d: #7A5F0D;
+  --gold-g: rgba(154, 122, 18, 0.10);
+  --tp: #0F1623;
+  --ts: #4A5568;
+  --tm: #78849A;
+  --green: #047857;
+  --red: #DC2626;
+  --blue: #1D4ED8;
+  --purple: #6D28D9;
+  --yellow: #B45309;
+  --border-soft: rgba(15, 22, 35, 0.10);
+  --dots: rgba(15, 22, 35, 0.045);
+  --shadow-card: 0 1px 2px rgba(15, 22, 35, .05), 0 1px 12px rgba(15, 22, 35, .04);
+  --shadow-login: 0 24px 60px rgba(15, 22, 35, .12), 0 0 0 1px rgba(154, 122, 18, .08);
+  --on-gold: #FFFFFF;
+  color-scheme: light;
+}
+
+/* Карточкам нужна тень — на светлом фоне одной рамки мало */
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .kpi-card,
+:root[data-theme="light"] .bank-card,
+:root[data-theme="light"] .wh-card,
+:root[data-theme="light"] .m-card { box-shadow: var(--shadow-card); }
+
+/* Золотые кнопки: на светлом чёрный текст читается хуже белого */
+:root[data-theme="light"] .btn-gold,
+:root[data-theme="light"] .login-btn {
+  background: linear-gradient(135deg, #A8841E, #8A6E1A);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(138, 110, 26, .28);
+}
+:root[data-theme="light"] .btn-gold:hover,
+:root[data-theme="light"] .login-btn:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(138, 110, 26, .38); }
+:root[data-theme="light"] .login-spinner { border-color: rgba(255,255,255,.35); border-top-color: #fff; }
+:root[data-theme="light"] .avatar { color: #fff; }
+
+/* Серые бейджи: #9ca3af на белом не читается */
+:root[data-theme="light"] .cat-food,
+:root[data-theme="light"] .cat-other { color: #4B5563; }
 
 html, body, #root {
   height: 100%;
@@ -39,11 +98,43 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(circle, rgba(201,162,39,.035) 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--dots) 1px, transparent 1px);
   background-size: 32px 32px;
   pointer-events: none;
   z-index: 0;
 }
+
+/* Базовый вид полей и кнопок без собственного класса.
+   Селекторы по тегу — любой класс (.login-input, .tax-input, .m2-search…)
+   перебивает их по специфичности, так что оформленные контролы не задеты. */
+:where(input, select, textarea) {
+  font-family: var(--body);
+  font-size: 12.5px;
+  color: var(--tp);
+  background: var(--bg-el);
+  border: 1px solid var(--border-l);
+  border-radius: 7px;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color .15s;
+}
+:where(input, select, textarea):focus { border-color: var(--gold-d); }
+:where(input, textarea)::placeholder { color: var(--tm); }
+
+:where(button) {
+  font-family: var(--body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ts);
+  background: var(--bg-el);
+  border: 1px solid var(--border-l);
+  border-radius: 7px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: all .15s;
+}
+:where(button):hover { border-color: var(--gold-d); color: var(--gold); }
+:where(button):disabled { opacity: .55; cursor: not-allowed; }
 
 .app { display: flex; height: 100vh; position: relative; z-index: 1; }
 
@@ -107,6 +198,18 @@ body::before {
 .nav-item.active .nav-num { color: var(--gold-d); }
 .sidebar-footer { padding: 14px 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
 .user-row { display: flex; align-items: center; gap: 10px; }
+/* THEME TOGGLE */
+.theme-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%;
+  background: var(--bg-el); border: 1px solid var(--border-l); border-radius: 7px;
+  color: var(--ts);
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+  padding: 7px 9px; cursor: pointer; transition: all .15s;
+}
+.theme-toggle:hover { border-color: var(--gold-d); color: var(--gold); background: var(--bg-hover); }
+.theme-toggle svg { width: 14px; height: 14px; flex-shrink: 0; }
+
 .lang-switcher { display: flex; gap: 4px; }
 .lang-btn { background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--ts); font-family: var(--mono); font-size: 9px; padding: 4px 7px; cursor: pointer; transition: all .15s; white-space: nowrap; }
 .lang-btn:hover { border-color: var(--border-l); color: var(--tp); background: var(--bg-hover); }
@@ -195,7 +298,7 @@ body::before {
 /* TABLE */
 table { width: 100%; border-collapse: collapse; }
 thead th { font-family: var(--mono); font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--tm); font-weight: 500; padding: 0 10px 10px 0; text-align: left; border-bottom: 1px solid var(--border); }
-tbody tr { border-bottom: 1px solid rgba(30,37,53,.7); transition: background .12s; cursor: pointer; }
+tbody tr { border-bottom: 1px solid var(--border-soft); transition: background .12s; cursor: pointer; }
 tbody tr:hover { background: var(--bg-el); }
 tbody tr:last-child { border-bottom: none; }
 tbody td { padding: 9px 10px 9px 0; font-size: 12px; vertical-align: middle; }
@@ -214,8 +317,8 @@ tbody td { padding: 9px 10px 9px 0; font-size: 12px; vertical-align: middle; }
 .cat-salary { background: rgba(167,139,250,.10); color: var(--purple); }
 .cat-logistics { background: rgba(251,191,36,.10); color: var(--yellow); }
 .cat-rent { background: rgba(248,113,113,.10); color: var(--red); }
-.cat-util { background: rgba(52,211,153,.08); color: #6ee7b7; }
-.cat-market { background: rgba(251,191,36,.08); color: #fde68a; }
+.cat-util { background: rgba(52,211,153,.08); color: var(--green); }
+.cat-market { background: rgba(251,191,36,.08); color: var(--yellow); }
 .cat-food { background: rgba(156,163,175,.10); color: #9ca3af; }
 .cat-other { background: rgba(156,163,175,.10); color: #9ca3af; }
 .cat-prepay { background: rgba(96,165,250,.10); color: var(--blue); }
@@ -230,7 +333,7 @@ tbody td { padding: 9px 10px 9px 0; font-size: 12px; vertical-align: middle; }
 
 /* P&L */
 .pl-rows { display: flex; flex-direction: column; }
-.pl-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(30,37,53,.8); }
+.pl-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
 .pl-row:last-child { border-bottom: none; }
 .pl-row.total { padding: 12px 0 2px; margin-top: 2px; }
 .pl-row.total .pl-label { font-family: var(--disp); font-size: 14px; letter-spacing: .05em; color: var(--tp); }
@@ -259,7 +362,7 @@ tbody td { padding: 9px 10px 9px 0; font-size: 12px; vertical-align: middle; }
 
 /* CASH GAP */
 .cashgap-card { background: var(--bg-card); border: 1px solid rgba(248,113,113,.22); border-radius: 12px; padding: 18px 20px; }
-.cashgap-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid rgba(30,37,53,.8); }
+.cashgap-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border-soft); }
 .cashgap-row:last-child { border-bottom: none; padding-top: 14px; margin-top: 2px; }
 .cashgap-label { font-size: 12px; color: var(--ts); flex: 1; }
 .cashgap-label.sub { font-size: 11px; color: var(--tm); padding-left: 14px; }
@@ -334,7 +437,7 @@ tbody td { padding: 9px 10px 9px 0; font-size: 12px; vertical-align: middle; }
 .mov-in { background: rgba(52,211,153,.10); color: var(--green); border: 1px solid rgba(52,211,153,.18); }
 .mov-out { background: rgba(248,113,113,.10); color: var(--red); border: 1px solid rgba(248,113,113,.18); }
 .mov-transfer { background: rgba(96,165,250,.10); color: var(--blue); border: 1px solid rgba(96,165,250,.18); }
-.forecast-row { display: grid; grid-template-columns: 2fr 90px 90px 80px 90px 120px; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(30,37,53,.7); }
+.forecast-row { display: grid; grid-template-columns: 2fr 90px 90px 80px 90px 120px; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
 .forecast-row:last-child { border-bottom: none; }
 .forecast-hdr { font-family: var(--mono); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--tm); }
 .days-bar { height: 4px; border-radius: 3px; background: var(--bg-el); overflow: hidden; margin-top: 3px; }
@@ -381,7 +484,7 @@ tbody td { padding: 9px 10px 9px 0; font-size: 12px; vertical-align: middle; }
 }
 .login-bg-grid {
   position: fixed; inset: 0; pointer-events: none;
-  background-image: radial-gradient(circle, rgba(201,162,39,.04) 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--dots) 1px, transparent 1px);
   background-size: 32px 32px;
 }
 .login-deco {
@@ -397,7 +500,7 @@ tbody td { padding: 9px 10px 9px 0; font-size: 12px; vertical-align: middle; }
   border-radius: 20px; padding: 40px 36px 32px;
   display: flex; flex-direction: column; gap: 0;
   position: relative; z-index: 1;
-  box-shadow: 0 24px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(201,162,39,.06);
+  box-shadow: var(--shadow-login);
   animation: fadeUp .4s ease;
 }
 
@@ -627,7 +730,7 @@ tbody td { padding: 9px 10px 9px 0; font-size: 12px; vertical-align: middle; }
     flex-direction: column;
     gap: 6px;
     padding: 10px 0;
-    border-bottom: 1px solid rgba(30,37,53,.7);
+    border-bottom: 1px solid var(--border-soft);
   }
   .forecast-hdr { display: none; }
 

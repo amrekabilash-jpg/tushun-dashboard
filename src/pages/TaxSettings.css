@@ -1,8 +1,8 @@
 .tax-page {
   min-height: 100vh;
   padding: 32px 40px 64px;
-  background: #07090D;
-  color: #E2E8F4;
+  background: var(--bg);
+  color: var(--tp);
   font-family: 'Manrope', sans-serif;
 }
 
@@ -13,14 +13,14 @@
   gap: 24px;
   margin-bottom: 28px;
   padding-bottom: 22px;
-  border-bottom: 1px solid #1E2535;
+  border-bottom: 1px solid var(--border);
 }
 
 .tax-eyebrow {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   letter-spacing: 0.22em;
-  color: #C9A227;
+  color: var(--gold);
   text-transform: uppercase;
   margin-bottom: 6px;
 }
@@ -31,12 +31,12 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   margin: 0;
-  color: #fff;
+  color: var(--tp);
 }
 
 .tax-sub {
   margin: 8px 0 0;
-  color: #8892A4;
+  color: var(--ts);
   font-size: 13px;
   max-width: 640px;
 }
@@ -53,17 +53,17 @@
   letter-spacing: 0.1em;
   padding: 6px 10px;
   border-radius: 6px;
-  border: 1px solid #1E2535;
-  color: #4A5568;
+  border: 1px solid var(--border);
+  color: var(--tm);
   text-transform: uppercase;
 }
-.tax-health--ok  { color: #34D399; border-color: rgba(52,211,153,.28); background: rgba(52,211,153,.08); }
-.tax-health--err { color: #F87171; border-color: rgba(248,113,113,.32); background: rgba(248,113,113,.10); }
+.tax-health--ok  { color: var(--green); border-color: rgba(52,211,153,.28); background: rgba(52,211,153,.08); }
+.tax-health--err { color: var(--red); border-color: rgba(248,113,113,.32); background: rgba(248,113,113,.10); }
 
 .tax-user {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: #8892A4;
+  color: var(--ts);
 }
 
 .tax-banner {
@@ -75,13 +75,13 @@
 .tax-banner--err {
   background: rgba(248,113,113,.08);
   border: 1px solid rgba(248,113,113,.28);
-  color: #FCA5A5;
+  color: var(--red);
 }
-.tax-banner code { font-family: 'JetBrains Mono', monospace; background: rgba(0,0,0,.35); padding: 2px 6px; border-radius: 4px; }
+.tax-banner code { font-family: 'JetBrains Mono', monospace; background: var(--bg-el); padding: 2px 6px; border-radius: 4px; }
 
 .tax-card {
-  background: #0F1218;
-  border: 1px solid #1E2535;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px 22px 20px;
 }
@@ -97,7 +97,7 @@
   font-family: 'Oswald', sans-serif;
   font-size: 14px;
   letter-spacing: 0.06em;
-  color: #fff;
+  color: var(--tp);
 }
 
 .tax-table-wrap { overflow-x: auto; }
@@ -108,17 +108,17 @@
   font-size: 9.5px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #4A5568;
+  color: var(--tm);
   font-weight: 500;
   text-align: left;
   padding: 0 10px 12px 0;
-  border-bottom: 1px solid #1E2535;
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 .tax-table tbody td {
   padding: 12px 10px 12px 0;
   font-size: 13px;
-  border-bottom: 1px solid rgba(30,37,53,.7);
+  border-bottom: 1px solid var(--border-soft);
   vertical-align: middle;
 }
 .tax-table tbody tr:last-child td { border-bottom: none; }
@@ -126,25 +126,25 @@
 
 .td-right { text-align: right; }
 
-.tax-td-name { font-weight: 600; color: #fff; }
+.tax-td-name { font-weight: 600; color: var(--tp); }
 .tax-mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
-.tax-muted { color: #4A5568; }
-.tax-pct { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #E2E8F4; }
-.tax-empty { text-align: center; padding: 30px 0; color: #4A5568; }
+.tax-muted { color: var(--tm); }
+.tax-pct { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--tp); }
+.tax-empty { text-align: center; padding: 30px 0; color: var(--tm); }
 
 .tax-input {
   width: 80px;
-  background: #161B24;
-  border: 1px solid #252E42;
+  background: var(--bg-el);
+  border: 1px solid var(--border-l);
   border-radius: 6px;
   padding: 6px 8px;
-  color: #E2E8F4;
+  color: var(--tp);
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
   outline: none;
   text-align: right;
 }
-.tax-input:focus { border-color: #C9A227; box-shadow: 0 0 0 1px rgba(201,162,39,.35); }
+.tax-input:focus { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(201,162,39,.35); }
 .tax-input--reason {
   width: 220px;
   text-align: left;
@@ -168,14 +168,14 @@
   transition: all .14s;
 }
 .tax-btn--gold {
-  background: linear-gradient(135deg, #C9A227, #A8841E);
-  color: #000;
+  background: linear-gradient(135deg, var(--gold), var(--gold-d));
+  color: var(--on-gold);
   box-shadow: 0 2px 14px rgba(201,162,39,.28);
 }
 .tax-btn--gold:hover { box-shadow: 0 4px 22px rgba(201,162,39,.48); transform: translateY(-1px); }
 .tax-btn--gold:disabled { opacity: .55; cursor: not-allowed; transform: none; }
-.tax-btn--ghost { background: transparent; border-color: #252E42; color: #8892A4; }
-.tax-btn--ghost:hover { border-color: #8A6E1A; color: #C9A227; }
+.tax-btn--ghost { background: transparent; border-color: var(--border-l); color: var(--ts); }
+.tax-btn--ghost:hover { border-color: var(--gold-d); color: var(--gold); }
 
 .tax-modal {
   position: fixed; inset: 0;
@@ -189,8 +189,8 @@
   width: min(820px, 100%);
   max-height: 80vh;
   overflow: auto;
-  background: #0F1218;
-  border: 1px solid #1E2535;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 22px 24px 24px;
 }
@@ -200,5 +200,5 @@
   font-size: 22px;
   font-weight: 500;
   margin: 0;
-  color: #fff;
+  color: var(--tp);
 }

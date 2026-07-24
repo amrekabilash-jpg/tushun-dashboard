@@ -14,6 +14,8 @@
     "modules_label": "Modüller",
     "user_name": "Yönetici",
     "user_role": "Tam Erişim",
+    "theme_light": "Açık tema",
+    "theme_dark": "Koyu tema",
     "nav": {
       "finance": "Finansal Muhasebe",
       "inventory": "Stok Yönetimi",

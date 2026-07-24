@@ -7,6 +7,22 @@ import { ModuleId } from '../types';
 export type RouteId = ModuleId | 'tax-settings' | 'import-batch' | 'reports';
 
 const SIDEBAR_KEY = 'tushun_sidebar_open';
+const THEME_KEY = 'tushun-theme';
+
+export type Theme = 'light' | 'dark';
+
+/** Тему на <html> уже проставил инлайн-скрипт в index.html (до отрисовки).
+ *  Здесь просто читаем то, что он выставил, чтобы стор не разошёлся с DOM. */
+const loadTheme = (): Theme => {
+  if (typeof document === 'undefined') return 'light';
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+};
+
+const applyTheme = (theme: Theme) => {
+  if (typeof document === 'undefined') return;
+  document.documentElement.setAttribute('data-theme', theme);
+  try { localStorage.setItem(THEME_KEY, theme); } catch { /* приватный режим — просто не сохраняем */ }
+};
 
 const isMobile = () =>
   typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
@@ -30,6 +46,10 @@ interface AppStore {
   sidebarOpen: boolean;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+  /** Оформление — светлое / тёмное. Сохраняется в localStorage. */
+  theme: Theme;
+  toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
 }
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -75,5 +95,17 @@ export const useAppStore = create<AppStore>((set) => ({
         localStorage.setItem(SIDEBAR_KEY, open ? '1' : '0');
       }
       return { sidebarOpen: open };
+    }),
+  theme: loadTheme(),
+  toggleTheme: () =>
+    set((s) => {
+      const next: Theme = s.theme === 'light' ? 'dark' : 'light';
+      applyTheme(next);
+      return { theme: next };
+    }),
+  setTheme: (theme) =>
+    set(() => {
+      applyTheme(theme);
+      return { theme };
     }),
 }));

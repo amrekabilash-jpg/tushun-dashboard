@@ -232,7 +232,7 @@ export default function SaleFormDialog({ products, defaultInvoiceNumber, onClose
                   <span>Себестоимость</span>
                   <strong>{fmt(preview.total_cost_kzt)} ₸</strong>
                 </div>
-                <div className="ib-total-row" style={{ color: preview.gross_margin_kzt >= 0 ? '#34D399' : '#F87171' }}>
+                <div className="ib-total-row" style={{ color: preview.gross_margin_kzt >= 0 ? 'var(--green)' : 'var(--red)' }}>
                   <span>Валовая маржа</span>
                   <strong style={{ color: 'inherit' }}>
                     {preview.gross_margin_kzt >= 0 ? '+' : ''}{fmt(preview.gross_margin_kzt)} ₸ · {fmtPct(preview.gross_margin_percent)}

@@ -6,8 +6,8 @@
   gap: 4px;
   padding: 4px;
   margin-bottom: 18px;
-  background: #0F1218;
-  border: 1px solid #1E2535;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 9px;
   width: fit-content;
 }
@@ -20,21 +20,21 @@
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.05em;
-  color: #4A5568;
+  color: var(--tm);
   cursor: pointer;
   transition: all .14s;
 }
-.fr-period-btn:hover { color: #E2E8F4; }
+.fr-period-btn:hover { color: var(--tp); }
 .fr-period-btn.is-active {
-  background: #161B24;
+  background: var(--bg-el);
   border-color: rgba(201,162,39,.22);
-  color: #C9A227;
+  color: var(--gold);
 }
 .fr-period-range {
   margin-left: 14px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  color: #4A5568;
+  color: var(--tm);
   letter-spacing: 0.08em;
 }
 
@@ -48,29 +48,29 @@
 @media (max-width: 980px) { .fr-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 
 .fr-kpi {
-  background: #0F1218;
-  border: 1px solid #1E2535;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 18px 18px 16px;
   position: relative;
   overflow: hidden;
   transition: border-color .2s;
 }
-.fr-kpi:hover { border-color: #252E42; }
+.fr-kpi:hover { border-color: var(--border-l); }
 
 .fr-kpi-label {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #8892A4;
+  color: var(--ts);
   margin-bottom: 12px;
 }
 .fr-kpi-val {
   font-family: 'JetBrains Mono', monospace;
   font-size: 24px;
   font-weight: 600;
-  color: #fff;
+  color: var(--tp);
   letter-spacing: -0.02em;
   line-height: 1;
   margin-bottom: 9px;
@@ -78,14 +78,14 @@
 .fr-cur {
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
-  color: #8892A4;
+  color: var(--ts);
   font-weight: 500;
   margin-left: 2px;
 }
 .fr-kpi-sub {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10.5px;
-  color: #4A5568;
+  color: var(--tm);
   letter-spacing: 0.04em;
 }
 
@@ -96,11 +96,11 @@
   top: 0; left: 0; right: 0;
   height: 2px;
 }
-.fr-kpi--accent::after { background: linear-gradient(90deg, #34D399, #6EE7B7); }
-.fr-kpi--gold::after   { background: linear-gradient(90deg, #8A6E1A, #C9A227); }
+.fr-kpi--accent::after { background: linear-gradient(90deg, var(--green), var(--green)); }
+.fr-kpi--gold::after   { background: linear-gradient(90deg, var(--gold-d), var(--gold)); }
 
-.fr-pos { color: #34D399 !important; }
-.fr-neg { color: #F87171 !important; }
+.fr-pos { color: var(--green) !important; }
+.fr-neg { color: var(--red) !important; }
 
 /* Двухколоночная сетка */
 .fr-grid {
@@ -115,7 +115,7 @@
 .fr-bar {
   width: 100%;
   height: 6px;
-  background: #161B24;
+  background: var(--bg-el);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -128,16 +128,16 @@
 /* Счета */
 .fr-accounts { display: flex; flex-direction: column; gap: 10px; }
 .fr-account {
-  border: 1px solid #1E2535;
+  border: 1px solid var(--border);
   border-radius: 9px;
   padding: 13px 14px;
-  background: rgba(22,27,36,.4);
+  background: var(--bg-el);
 }
 .fr-account-top {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 4px;
 }
-.fr-account-bank { font-size: 13px; font-weight: 600; color: #fff; }
+.fr-account-bank { font-size: 13px; font-weight: 600; color: var(--tp); }
 .fr-cur-badge {
   font-family: 'JetBrains Mono', monospace;
   font-size: 9.5px;
@@ -146,16 +146,16 @@
   padding: 3px 7px;
   border-radius: 4px;
 }
-.fr-cur-kzt { background: rgba(52,211,153,.10); color: #34D399; border: 1px solid rgba(52,211,153,.22); }
-.fr-cur-usd { background: rgba(251,191,36,.10); color: #FBBF24; border: 1px solid rgba(251,191,36,.22); }
+.fr-cur-kzt { background: rgba(52,211,153,.10); color: var(--green); border: 1px solid rgba(52,211,153,.22); }
+.fr-cur-usd { background: rgba(251,191,36,.10); color: var(--yellow); border: 1px solid rgba(251,191,36,.22); }
 .fr-account-num { font-size: 10px; letter-spacing: 0.04em; margin-bottom: 8px; }
 .fr-account-bal {
   font-family: 'JetBrains Mono', monospace;
   font-size: 18px;
   font-weight: 600;
-  color: #E2E8F4;
+  color: var(--tp);
 }
-.fr-account-cur { font-size: 11px; color: #8892A4; margin-left: 4px; }
+.fr-account-cur { font-size: 11px; color: var(--ts); margin-left: 4px; }
 .fr-account-eq {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10.5px;
@@ -179,8 +179,8 @@
   flex-direction: column;
 }
 .sf-preview {
-  background: rgba(22,27,36,.6);
-  border: 1px solid #1E2535;
+  background: var(--bg-el);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 16px;
   align-self: start;
@@ -189,8 +189,8 @@
   margin-top: 6px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 10.5px;
-  color: #34D399;
+  color: var(--green);
   letter-spacing: 0.04em;
 }
-.sf-cost-source--warn { color: #FBBF24; }
+.sf-cost-source--warn { color: var(--yellow); }
 .sf-cost-source strong { color: inherit; font-weight: 600; }

@@ -14,6 +14,8 @@
     "modules_label": "模块",
     "user_name": "管理员",
     "user_role": "完全访问",
+    "theme_light": "浅色主题",
+    "theme_dark": "深色主题",
     "nav": {
       "finance": "财务记账",
       "inventory": "库存管理",

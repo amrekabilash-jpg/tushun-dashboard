@@ -14,6 +14,8 @@
     "modules_label": "Модули",
     "user_name": "Администратор",
     "user_role": "Полный доступ",
+    "theme_light": "Светлая тема",
+    "theme_dark": "Тёмная тема",
     "nav": {
       "finance": "Финансовый учет",
       "inventory": "Товарный учет",

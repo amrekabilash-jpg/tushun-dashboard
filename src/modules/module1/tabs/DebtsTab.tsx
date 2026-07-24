@@ -79,7 +79,7 @@ export default function DebtsTab() {
         <div style={{
           padding: '10px 14px', marginBottom: 12, borderRadius: 8,
           background: 'rgba(248,113,113,.10)', border: '1px solid rgba(248,113,113,.28)',
-          color: '#FCA5A5', fontSize: 12,
+          color: 'var(--red)', fontSize: 12,
         }}>⚠ {error}</div>
       )}
 

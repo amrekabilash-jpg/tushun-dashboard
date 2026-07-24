@@ -3,6 +3,7 @@ import { RouteId, useAppStore } from '../../store';
 import { useAuthStore } from '../../store/auth';
 import { ModuleId } from '../../types';
 import LanguageSwitcher from '../LanguageSwitcher';
+import ThemeToggle from '../ThemeToggle';
 
 const NAV_ITEMS: { id: ModuleId; key: string; icon: React.ReactNode }[] = [
   {
@@ -104,6 +105,7 @@ export default function Sidebar() {
         ))}
       </nav>
       <div className="sidebar-footer">
+        <ThemeToggle />
         <LanguageSwitcher />
         <div className="user-row">
           <div className="avatar">{user?.name.slice(0, 2).toUpperCase() ?? 'АД'}</div>

@@ -140,7 +140,13 @@ export default function TelegramTab() {
   }, [status]);
 
   if (loading) return <div style={{ padding: 24, color: 'var(--ts)' }}>Загрузка…</div>;
-  if (!link || !status) return null;
+  // Без данных показываем причину: иначе на месте модуля оставался пустой экран
+  if (!link || !status) return (
+    <div style={{
+      background: 'rgba(248,113,113,.10)', border: '1px solid var(--red)',
+      borderRadius: 6, padding: '10px 14px', color: 'var(--red)', fontSize: 12.5,
+    }}>⚠ {error ?? 'Сервер не вернул данные бота'}</div>
+  );
 
   return (
     <div style={{ display: 'grid', gap: 18 }}>
